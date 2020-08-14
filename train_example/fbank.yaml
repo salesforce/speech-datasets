@@ -1,0 +1,7 @@
+- type: fbank
+  num_mel_bins: 80
+  sample_frequency: 16000
+- type: cmvn
+  cmvn_type: global
+  stats: wsj/asr1/dump/fbank/global_cmvn.ark
+  norm_vars: True
