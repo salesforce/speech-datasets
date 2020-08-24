@@ -61,6 +61,26 @@ def validate_datasets(datasets: List[str], task: str, feats_type: str) \
     assert len(invalid) == 0, \
         f"Invalid datasets: {invalid}. Valid {task} datasets are: {valid}."
 
+    for dataset, subs in dataset2subs.items():
+        root = os.path.join(get_root(), dataset, f"{task}1", "dump", feats_type)
+        if not os.path.exists(root):
+            valid_subs = {}
+        else:
+            valid_subs = {d for d in os.listdir(root)
+                          if os.path.isdir(os.path.join(root, d))}
+            valid_subs = valid_subs.difference({"orig", "no_short"})
+
+        invalid_subs = {f"{dataset}/{s}" for s in subs.difference(valid_subs)}
+        valid_subs = {f"{dataset}/{s}" for s in valid_subs}
+        if len(valid_subs) == 0:
+            raise FileNotFoundError(
+                f"{feats_type} data has not been dumped/prepared for dataset "
+                f"{dataset}.")
+        if len(invalid_subs) > 0:
+            raise FileNotFoundError(
+                f"The following are invalid splits of dataset {dataset}: "
+                f"{invalid_subs}\nValid splits are: {valid_subs}")
+
     return dataset2subs
 
 
@@ -111,20 +131,22 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
 
     dataset2subs = validate_datasets(datasets, task, feats_type)
     for dataset, subs in dataset2subs.items():
+        root = os.path.join(get_root(), dataset, f"{task}1", "dump", feats_type)
         for sub in subs:
             name = f"{dataset}/{sub}"
             dsets.append(name)
-            dirname = f"{get_root()}/{dataset}/{task}1/dump/{feats_type}/{sub}"
+            dirname = os.path.join(root, sub)
             try:
                 with open(os.path.join(dirname, "archive_format")) as f:
                     fmt = f.readline().rstrip()
-                    assert fmt in ["hdf5", "mat"], \
-                        f"Dataset {name} must be dumped to 'hdf5' or 'mat' " \
-                        f"archives, but got {fmt} instead."
-                    fmts.append(fmt)
+                assert fmt in ["hdf5", "mat"], \
+                    f"Dataset {name} must be dumped to 'hdf5' or 'mat' " \
+                    f"archives, but got {fmt} instead."
+                fmts.append(fmt)
 
                 with open(os.path.join(dirname, "data_format")) as f:
-                    scp_files.append(f"{dirname}/{f.readline().rstrip()}.scp")
+                    scp = f"{f.readline().rstrip()}.scp"
+                scp_files.append(os.path.join(dirname, scp))
 
             except Exception:
                 logger.error(f"{feats_type} data has not been properly dumped/"
