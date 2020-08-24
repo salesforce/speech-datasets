@@ -5,7 +5,8 @@ import random
 import numpy
 from PIL import Image
 
-from speech_datasets.transform import FuncTrans, sparse_time_warp
+from speech_datasets.transform import sparse_time_warp
+from speech_datasets.transform.interface import FuncTrans
 
 
 def time_warp(x, max_time_warp=80, inplace=False, mode="PIL"):
