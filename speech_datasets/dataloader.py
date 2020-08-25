@@ -166,9 +166,40 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     def __init__(self, datasets: Union[str, List[str]],
                  task="asr", precomputed_feats_type="raw",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
-                 batch_size=1, shuffle=False, drop_last=False,
+                 batch_size=1, train=False, shuffle=False, drop_last=False,
                  num_replicas=None, rank=None, spmodel=None,
                  n_transform_proc=None, data_cache_mb=4096):
+        """
+        :param datasets: a list of strings specifying which datasets to load.
+            Each dataset should be formatted as `<dataset_name>/<split_name>`,
+            e.g. `wsj/train_si284`, `swbd/rt03`, `librispeech/dev-other`, etc.
+        :param task: either "asr" or "tts"
+        :param precomputed_feats_type: "raw", "fbank", or "fbank_pitch". Tells
+            the data loader where to look for archive files, and what sort of
+            pre-computed features have been dumped to those archives.
+        :param transform_conf: either the filename of a `yaml` file specifying a
+            transformation, or a `List[Dict[str, Any]]` specifying that
+            transformation. `None` means no data transformation.
+        :param batch_size: batch size
+        :param train: whether the dataset's transform should be applied in
+            training mode
+        :param shuffle: whether to shuffle the dataset
+        :param drop_last: whether to omit the last batch in the epoch if it
+            contains fewer elements than `batch_size`
+        :param num_replicas: the number of distributed copies of the dataset
+            being used, e.g. for training a `DistributedDataParallel` model.
+            You should not need to specify this manually in most use cases.
+        :param rank: the index (amongst all distributed workers) of the current
+            worker, e.g. for training a `DistributedDataParallel` model. You
+            should not need to specify this manually in most use cases.
+        :param spmodel: the path to a `sentencepiece` BPE model to use to
+            tokenize the text
+        :param n_transform_proc: the number of parallel processes to use to
+            apply the data transformation (specified by `transform_conf`) to
+            the data being loaded. Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
+        :param data_cache_mb: the number of megabytes the cache (for pre-fetching
+            archive files into memory) can contain.
+        """
 
         # Initialize parameters for distributed data loading
         is_dist = dist.is_available() and dist.is_initialized()
@@ -209,7 +240,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
 
             transform = Transformation(transform_conf, precomputed_feats_type)
             dataset = reader_class(
-                f"scp:{tmpfile.name}", return_dict=True,
+                f"scp:{tmpfile.name}", return_dict=True, train=train,
                 shuffle=shuffle, n_parts=num_replicas, i_part=rank,
                 transform=transform, pre_fetch_next_epoch=True,
                 nproc=n_transform_proc, capacity_mb=data_cache_mb)
@@ -220,6 +251,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     @property
     def shuffle(self):
         return self.dataset.shuffle
+
+    @property
+    def train(self):
+        return self.dataset.train
 
     @property
     def epoch(self):

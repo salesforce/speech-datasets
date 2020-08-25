@@ -25,7 +25,7 @@ from speech_datasets.utils.types import CMVNStats
 _reader_registry = []
 
 
-def file_reader_helper(rspecifier: str, filetype: str,
+def file_reader_helper(rspecifier: str, filetype: str, train=False,
                        return_shape: bool = False, return_dict: bool = False,
                        transform: Transformation = None, seed: int = None):
     """Read uttid and array in kaldi style
@@ -36,6 +36,7 @@ def file_reader_helper(rspecifier: str, filetype: str,
     Args:
         rspecifier: Give as "ark:feats.ark" or "scp:feats.scp"
         filetype: "mat": kaldi-matrix, "hdf5": HDF5, "sound": raw soundfiles
+        train: Whether to apply the transform in training mode or eval mode.
         return_shape: Return the shape of the matrix, instead of the matrix.
         return_dict: Return a dictionary containing all the relevant info about
                      the matrix & other associated data. For HDF5 only.
@@ -60,13 +61,13 @@ def file_reader_helper(rspecifier: str, filetype: str,
     """
     if filetype == "mat":
         return KaldiReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, seed=seed, nproc=1)
+                           transform=transform, train=train, seed=seed, nproc=1)
     elif filetype == "hdf5":
         return HDF5Reader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                          transform=transform, seed=seed, nproc=1)
+                          transform=transform, train=train, seed=seed, nproc=1)
     elif filetype == "sound":
         return SoundReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform)
+                           transform=transform, train=train)
     else:
         raise NotImplementedError(f"filetype={filetype}")
 
@@ -89,7 +90,7 @@ class BaseReader(IterableDataset):
     """Uses a .scp file to read data from .h5 files. Pre-fetches .h5 files into
     dictionaries stored in memory for efficient access."""
     def __init__(self, rspecifier, return_shape=False, return_dict=False,
-                 transform: Transformation = None, capacity_mb=4096,
+                 transform: Transformation = None, train=False, capacity_mb=4096,
                  nproc: int = None, pre_fetch_next_epoch=False,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
@@ -124,6 +125,7 @@ class BaseReader(IterableDataset):
         # For determining the data format to return
         self.return_dict = return_dict
         self.return_shape = return_shape and not return_dict
+        self.train = train
         transform = Transformation() if transform is None else transform
 
         # For applying the desired transform to the signal in the background.
@@ -134,12 +136,12 @@ class BaseReader(IterableDataset):
         idx = len(_reader_registry)
         _reader_registry.append(idx)
         _globals = globals()
-        _globals.update(f=transform)
+        _globals.update(f=transform, train=self.train)
         self.transform_name = f"_{self.__class__.__name__}_transform_{idx}"
         exec(f"global {self.transform_name}\n"
              f"def {self.transform_name}(key_datadict):\n"
              f"    key, datadict = key_datadict\n"
-             f"    datadict['x'] = f(**datadict, uttid_list=key)\n"
+             f"    datadict['x'] = f(**datadict, uttid_list=key, train=train)\n"
              f"    return datadict",
              _globals)
         self.transform = eval(self.transform_name)

@@ -75,8 +75,8 @@ dev_data = ["librispeech/train-other", "wsj/test_dev93"]
 t = [{"type": "fbank", "num_mel_bins": 80, "sample_frequency": 16000}]
 
 # Use data loaders as context managers
-with SDL(tr_data, transform_conf=t, shuffle=True, batch_size=16) as train_loader, \
-        SDL(dev_data, transform_conf=t, shuffle=False, batch_size=16) as dev_loader:
+with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as train_loader, \
+        SDL(dev_data, transform_conf=t, train=False, shuffle=False, batch_size=16) as dev_loader:
 
     for epoch in range(10):
         train_loader.set_epoch(epoch)
@@ -209,6 +209,7 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `transform_conf`: (default `None`): either the filename of a `yaml` file specifying a transformation, or a
 `List[Dict[str, Any]]` specifying that transformation. `None` means no data transformation.
 - `batch_size`: (default `1`): batch size
+- `train`: (default `False`): whether the dataset's transform should be applied in training mode
 - `shuffle`: (default `False`): whether to shuffle the dataset, using the policy described [above](#random-policy)
 - `drop_last`: (default `False`): whether to omit the last batch in the epoch (if it contains fewer elements than
 `batch_size`)
@@ -265,7 +266,7 @@ from speech_datasets import SpeechDataLoader
 
 datasets = ["wsj/train_si284", "librispeech/train-other-500",
             "commonvoice/valid_train_en"]
-with SpeechDataLoader(datasets, task="asr1", shuffle=True, 
+with SpeechDataLoader(datasets, task="asr1", train=True, shuffle=True,
                       precomputed_feats_type="fbank") as loader:
     # do stuff
 ```
