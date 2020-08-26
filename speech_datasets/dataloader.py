@@ -200,6 +200,9 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         :param data_cache_mb: the number of megabytes the cache (for pre-fetching
             archive files into memory) can contain.
         """
+        # For using the next() syntax
+        self.iter = None
+        self.current_position = 0
 
         # Initialize parameters for distributed data loading
         is_dist = dist.is_available() and dist.is_initialized()
@@ -260,12 +263,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     def epoch(self):
         return self.dataset.seed
 
-    @epoch.setter
-    def epoch(self, e):
-        self.dataset.seed = e
-
     def set_epoch(self, e):
-        self.epoch = e
+        self.dataset.seed = e
 
     def close(self):
         self.dataset.close()
@@ -295,6 +294,17 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
 
     def __iter__(self):
         yield from super().__iter__()
+
+    def next(self):
+        if self.iter is None:
+            self.iter = iter(self)
+        try:
+            self.current_position += 1
+            return next(self.iter)
+        except StopIteration:
+            self.current_position = 0
+            self.set_epoch(self.epoch + 1)
+            return self.next()
 
     def __enter__(self):
         return self

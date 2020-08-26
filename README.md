@@ -78,6 +78,7 @@ t = [{"type": "fbank", "num_mel_bins": 80, "sample_frequency": 16000}]
 with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as train_loader, \
         SDL(dev_data, transform_conf=t, train=False, shuffle=False, batch_size=16) as dev_loader:
 
+    # Iterator syntax
     for epoch in range(10):
         train_loader.set_epoch(epoch)
         for batch in train_loader:
@@ -85,6 +86,16 @@ with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as 
 
         for batch in dev_loader:
             # do evaluation...
+
+    # next() syntax
+    for i in range(50000):
+        batch = train_loader.next()
+        # do training...
+
+        # do evaluation every 1000 steps
+        if i % 1000 == 999:
+            for batch in dev_loader:
+                # do evaluation...
 ```
 <a name="archive-cache"></a>
 Our implementation balances memory constraints with the need for random access within a dataset (issue 4), by
@@ -97,7 +108,7 @@ order in which utterances within each archive file are loaded. Moreover, for dat
 (e.g. `train_si284` for WSJ; `train-clean-100`, `train-clean-360`, and `train-other-500` for LibriSpeech), the data
 preparation script randomizes the way in which utterances are split between different archive files. Empirically, we
 see no degradation in accuracy compared to fully randomized sampling 
-(see [Performance Benchmarks](#performance-benchmarks) for more details).
+(see [Performance](#performance) for more details).
 
 Finally, we hide the latency of file I/O and online feature computation & data transformation by having a pool of
 independent CPU processes apply the desired transformation on pre-fetched data asynchronously. This happens 
