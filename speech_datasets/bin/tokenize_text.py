@@ -129,7 +129,10 @@ def tokenize(
     # Truncate the vocab if needed
     nvocab, invocab_count = 0, 0
     total_count = sum(counter.values())
-    max_nvocab = None if vocabulary_size <= 0 else vocabulary_size - len(add_symbol)
+    if token_type == "bpe":
+        max_nvocab = None if vocabulary_size <= 0 else vocabulary_size
+    else:
+        max_nvocab = None if vocabulary_size <= 0 else vocabulary_size - len(add_symbol)
     for nvocab, (w, c) in enumerate(words_and_counts, 1):
         if c is not None:
             invocab_count += c
