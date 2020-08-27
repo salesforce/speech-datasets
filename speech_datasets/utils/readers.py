@@ -27,13 +27,14 @@ from speech_datasets.utils.types import CMVNStats
 _reader_registry = []
 
 
-def _weakref_close(loader_ref):
-    """Closes a weakref to the dataloader (if not dead). Each loader registers
-    this function w/ a weakref to itself with atexit. We use a weakref so
-    atexit doesn't hold on to a reference to the object until it closes."""
-    loader = loader_ref()
-    if loader is not None:
-        loader.close()
+def _weakref_close(reader_ref):
+    """Closes a weakref to the reader (if not already dead). Each reader
+    registers this function with atexit with a weakref to itself. We use a
+    weakref atexit doesn't hold on to a reference to the reader, so the reader
+    can actually be garbage collected before the program exits (if needed)."""
+    reader = reader_ref()
+    if reader is not None:
+        reader.close()
 
 
 def file_reader_helper(rspecifier: str, filetype: str, train=False,
@@ -195,7 +196,6 @@ class BaseReader(IterableDataset):
             self.process_pool.terminate()
         exec(f"global {self.transform_name}\n"
              f"del {self.transform_name}")
-        atexit.unregister(self.close)
 
     def __len__(self):
         if self.ark_or_scp == "ark":
@@ -206,9 +206,10 @@ class BaseReader(IterableDataset):
     def close(self):
         """Empties the queue and suspends loading any files not yet loaded."""
         self.queue.clear()  # this will stop any pending queue.put()
-        if self.files_loaded is not None:
+        files_future = self.files_loaded
+        if files_future is not None and not files_future.cancelled():
             self.files_loaded.cancel()
-            while not (self.files_loaded.done() or self.files_loaded.cancelled()):
+            while not (files_future.done() or files_future.cancelled()):
                 pass
         assert self.queue.empty()
         self.queue.open()
