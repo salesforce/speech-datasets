@@ -9,7 +9,8 @@ from speech_datasets.text.tokenizers import AbsTokenizer, CharTokenizer, \
 
 def build_tokenizer(
     token_type: str,
-    bpemodel_or_vocab: Union[Path, str, Iterable[str]] = None,
+    bpemodel: Union[Path, str] = None,
+    token_list: Union[Path, str, Iterable[str]] = None,
     non_linguistic_symbols: Union[Path, str, Iterable[str]] = None,
     remove_non_linguistic_symbols: bool = False,
     space_symbol: str = "<space>",
@@ -18,28 +19,28 @@ def build_tokenizer(
     """A helper function to instantiate Tokenizer"""
     assert check_argument_types()
     if token_type == "bpe":
-        if bpemodel_or_vocab is None:
+        if bpemodel is None:
             raise ValueError('bpemodel is required if token_type = "bpe"')
 
         if remove_non_linguistic_symbols:
             raise RuntimeError(
                 "remove_non_linguistic_symbols is not implemented for token_type=bpe"
             )
-        return SentencepieceTokenizer(model=bpemodel_or_vocab)
+        return SentencepieceTokenizer(model=bpemodel, token_list=token_list)
 
     elif token_type == "word":
         if remove_non_linguistic_symbols and non_linguistic_symbols is not None:
             return WordTokenizer(
-                vocab=bpemodel_or_vocab,
+                vocab=token_list,
                 delimiter=delimiter,
                 non_linguistic_symbols=non_linguistic_symbols,
                 remove_non_linguistic_symbols=True)
         else:
-            return WordTokenizer(vocab=bpemodel_or_vocab, delimiter=delimiter)
+            return WordTokenizer(vocab=token_list, delimiter=delimiter)
 
     elif token_type == "char":
         return CharTokenizer(
-            char_list=bpemodel_or_vocab,
+            char_list=token_list,
             non_linguistic_symbols=non_linguistic_symbols,
             space_symbol=space_symbol,
             remove_non_linguistic_symbols=remove_non_linguistic_symbols,

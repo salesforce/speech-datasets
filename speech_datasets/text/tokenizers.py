@@ -110,11 +110,23 @@ class CharTokenizer(AbsTokenizer):
 
 
 class SentencepieceTokenizer(AbsTokenizer):
-    def __init__(self, model: Union[Path, str]):
+    def __init__(self, model: Union[Path, str],
+                 token_list: Union[Path, str, Iterable[str]] = None):
         assert check_argument_types()
         self.model = str(model)
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(self.model)
+
+        if isinstance(token_list, (Path, str)):
+            char_list = Path(token_list)
+            with char_list.open("r", encoding="utf-8") as f:
+                token_list = [line.rstrip() for line in f]
+
+        if token_list is not None:
+            self.idx2tok = {i: tok for i, tok in enumerate(token_list)}
+            self.tok2idx = {tok: i for i, tok in enumerate(token_list)}
+        else:
+            self.idx2tok = self.tok2idx = None
 
     def __repr__(self):
         return f'{self.__class__.__name__}(model="{self.model}")'
@@ -136,19 +148,16 @@ class SentencepieceTokenizer(AbsTokenizer):
         return self.sp.DecodePieces(list(tokens))
 
     def tokens2ids(self, tokens: Iterable[str]) -> List[int]:
-        return [self.sp.PieceToId(tok) for tok in tokens]
+        return [self.tok2idx.get(tok, self.tok2idx["<unk>"]) for tok in tokens]
 
     def ids2tokens(self, ids: Iterable[int]) -> List[str]:
-        return [self.sp.IdToPiece(i) for i in ids]
-
-    def text2ids(self, line: str) -> List[int]:
-        return self.sp.EncodeAsIds(line)
-
-    def ids2text(self, ids: Iterable[int]) -> str:
-        return self.sp.DecodeIds(ids)
+        return [self.idx2tok[idx] for idx in ids]
 
     def __len__(self):
-        return self.sp.get_piece_size()
+        if self.idx2tok is None:
+            return self.sp.get_piece_size()
+        else:
+            return len(self.idx2tok)
 
 
 class WordTokenizer(AbsTokenizer):

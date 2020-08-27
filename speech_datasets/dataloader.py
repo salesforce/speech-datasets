@@ -217,7 +217,12 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                              f"(Got rank={rank}, n_replicas={num_replicas}).")
 
         # Build a sentencepiece tokenizer if desired
-        self.tokenizer = build_tokenizer("bpe", spmodel) if spmodel else None
+        self.tokenizer = None
+        if spmodel is not None:
+            token_list = os.path.join(os.path.dirname(spmodel), "tokens.txt")
+            if not os.path.isfile(token_list):
+                token_list = None
+            self.tokenizer = build_tokenizer("bpe", spmodel, token_list)
 
         # Get all the datasets & their sub-datasets, and validate them
         datasets = [datasets] if isinstance(datasets, str) else datasets

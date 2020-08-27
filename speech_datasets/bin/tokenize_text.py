@@ -89,7 +89,7 @@ def tokenize(
 
     tokenizer = build_tokenizer(
         token_type=token_type,
-        bpemodel_or_vocab=bpemodel,
+        bpemodel=bpemodel,
         delimiter=delimiter,
         space_symbol=space_symbol,
         non_linguistic_symbols=non_linguistic_symbols,
