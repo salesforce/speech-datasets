@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import atexit
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import io
@@ -7,6 +8,7 @@ import multiprocessing as mp
 import os
 import sys
 from typing import Any, Dict, List, Tuple
+import weakref
 
 import h5py
 import kaldiio
@@ -166,6 +168,9 @@ class BaseReader(IterableDataset):
         if self.pre_fetch_next_epoch:
             self.load_files()
 
+        # Make sure that the data loader is shut down in case of premature exits
+        atexit.register(weakref.proxy(self).close)
+
     @abstractmethod
     def get_file_dict(self, path: str, uttid_locs: List[Tuple[str, str]] = None) \
             -> Dict[str, Dict[str, Any]]:
@@ -174,13 +179,14 @@ class BaseReader(IterableDataset):
         raise NotImplementedError
 
     def __del__(self):
-        """Shut down the process pool & de-register this loader's transformation
-        function from global scope."""
+        """Shut down the process pool, unregister this loader's transformation
+        function from global scope, and unregister self.close from atexit."""
         self.thread_pool.shutdown(wait=False)
         if self.process_pool is not None:
             self.process_pool.terminate()
         exec(f"global {self.transform_name}\n"
              f"del {self.transform_name}")
+        atexit.unregister(self.close)
 
     def __len__(self):
         if self.ark_or_scp == "ark":
@@ -191,9 +197,10 @@ class BaseReader(IterableDataset):
     def close(self):
         """Empties the queue and suspends loading any files not yet loaded."""
         self.queue.clear()  # this will stop any pending queue.put()
-        self.files_loaded.cancel()
-        while not (self.files_loaded.done() or self.files_loaded.cancelled()):
-            pass
+        if self.files_loaded is not None:
+            self.files_loaded.cancel()
+            while not (self.files_loaded.done() or self.files_loaded.cancelled()):
+                pass
         assert self.queue.empty()
         self.queue.open()
         self._fetch_seed = self._seed
