@@ -312,7 +312,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         except StopIteration:
             self.current_position = 0
             self.set_epoch(self.epoch + 1)
-            return self.next()
+            return next(self.iter)
 
     def __enter__(self):
         return self
