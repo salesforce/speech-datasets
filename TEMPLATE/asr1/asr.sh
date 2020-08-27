@@ -59,9 +59,6 @@ remove_empty_transcripts=true # whether to remove utterances with no transcript 
 token_type=bpe      # Tokenization type (char or bpe or word).
 n_tokens=2000       # The maximum number of tokens allowed.
 bpemode=unigram     # Mode of BPE (unigram or bpe).
-oov="<unk>"         # Out of vocabulary symbol.
-blank="<blank>"     # CTC blank symbol
-sos_eos="<sos/eos>" # sos and eos symbole
 bpe_input_sentence_size=100000000 # Size of input sentence for BPE.
 bpe_char_cover=1.0  # character coverage when modeling BPE
 nlsyms="<noise>"    # non-linguistic symbols list, separated by a comma, for (BPE & char)
@@ -102,9 +99,6 @@ Options:
     --token_type              # Tokenization type (char or bpe or word, default="${token_type}").
     --n_tokens                # The maximum number of tokens allowed (default="${n_tokens}").
     --bpemode                 # Mode of BPE (unigram or bpe, default="${bpemode}").
-    --oov                     # Out of vocabulary symbol (default="${oov}").
-    --blank                   # CTC blank symbol (default="${blank}").
-    --sos_eos=                # sos and eos symbole (default="${sos_eos}").
     --bpe_input_sentence_size # Size of input sentence for BPE (default="${bpe_input_sentence_size}").
     --bpe_char_cover          # Character coverage when modeling BPE (default="${bpe_char_cover}").
     --nlsyms                  # Non-linguistic symbol list for BPE/char, separated by a comma. (default="${nlsyms}").
@@ -454,14 +448,15 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
             _opts_spm=""
         fi
 
+        # n_tokens - 2 to account for <sos/eos> and <blank>
         python3 -m speech_datasets.bin.spm_train \
             --input="${bpedir}"/train.txt \
-            --vocab_size="${n_tokens}" \
+            --vocab_size="$(($n_tokens - 2))" \
             --model_type="${bpemode}" \
             --model_prefix="${bpeprefix}" \
             --character_coverage=${bpe_char_cover} \
             --input_sentence_size="${bpe_input_sentence_size}" \
-            ${_opts_spm}
+            --unk_surface="<unk>" ${_opts_spm}
 
         _opts="--bpemodel ${bpemodel}"
 
@@ -484,9 +479,9 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         --input "dump/srctexts" --output "${token_list}" ${_opts} \
         --field 2- \
         --write_vocabulary true \
-        --add_symbol "${blank}:0" \
-        --add_symbol "${oov}:1" \
-        --add_symbol "${sos_eos}:-1"
+        --add_symbol "<blank>:0" \
+        --add_symbol "<unk>:1" \
+        --add_symbol "<sos/eos>:-1"
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"
