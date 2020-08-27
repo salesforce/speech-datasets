@@ -27,6 +27,15 @@ from speech_datasets.utils.types import CMVNStats
 _reader_registry = []
 
 
+def _weakref_close(loader_ref):
+    """Closes a weakref to the dataloader (if not dead). Each loader registers
+    this function w/ a weakref to itself with atexit. We use a weakref so
+    atexit doesn't hold on to a reference to the object until it closes."""
+    loader = loader_ref()
+    if loader is not None:
+        loader.close()
+
+
 def file_reader_helper(rspecifier: str, filetype: str, train=False,
                        return_shape: bool = False, return_dict: bool = False,
                        transform: Transformation = None, seed: int = None):
@@ -169,7 +178,7 @@ class BaseReader(IterableDataset):
             self.load_files()
 
         # Make sure that the data loader is shut down in case of premature exits
-        atexit.register(weakref.proxy(self).close)
+        atexit.register(_weakref_close, weakref.ref(self))
 
     @abstractmethod
     def get_file_dict(self, path: str, uttid_locs: List[Tuple[str, str]] = None) \
