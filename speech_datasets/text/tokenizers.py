@@ -121,12 +121,12 @@ class SentencepieceTokenizer(AbsTokenizer):
             char_list = Path(token_list)
             with char_list.open("r", encoding="utf-8") as f:
                 token_list = [line.rstrip() for line in f]
+        elif token_list is None:
+            token_list = [self.sp.IdToPiece(i)
+                          for i in range(self.sp.get_piece_size())]
 
-        if token_list is not None:
-            self.idx2tok = {i: tok for i, tok in enumerate(token_list)}
-            self.tok2idx = {tok: i for i, tok in enumerate(token_list)}
-        else:
-            self.idx2tok = self.tok2idx = None
+        self.idx2tok = {i: tok for i, tok in enumerate(token_list)}
+        self.tok2idx = {tok: i for i, tok in enumerate(token_list)}
 
     def __repr__(self):
         return f'{self.__class__.__name__}(model="{self.model}")'

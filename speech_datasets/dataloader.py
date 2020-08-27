@@ -49,7 +49,7 @@ def validate_datasets(datasets: List[str], task: str, feats_type: str) \
         except ValueError:
             raise ValueError(
                 f"Datasets must be specified as <dataset>/<sub_dataset> ",
-                f"(e.g. wsj/train_si284, librispeech/dev_other, etc.), "
+                f"(e.g. wsj/train_si284, librispeech/dev-other, etc.), "
                 f"but got {d} instead")
         dataset2subs[dataset.lower()].add(sub)
 
