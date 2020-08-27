@@ -167,7 +167,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  task="asr", precomputed_feats_type="raw",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, train=False, shuffle=False, drop_last=False,
-                 num_replicas=None, rank=None, spmodel=None,
+                 num_replicas=None, rank=None, spmodel=None, token_list=None,
                  n_transform_proc=None, data_cache_mb=4096):
         """
         :param datasets: a list of strings specifying which datasets to load.
@@ -194,6 +194,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             should not need to specify this manually in most use cases.
         :param spmodel: the path to a `sentencepiece` BPE model to use to
             tokenize the text
+        :param token_list: the path to a `sentencepiece` BPE units to use to
+            tokenize the text
         :param n_transform_proc: the number of parallel processes to use to
             apply the data transformation (specified by `transform_conf`) to
             the data being loaded. Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
@@ -219,7 +221,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         # Build a sentencepiece tokenizer if desired
         self.tokenizer = None
         if spmodel is not None:
-            token_list = os.path.join(os.path.dirname(spmodel), "tokens.txt")
+            if token_list is None:
+                token_list = os.path.join(os.path.dirname(spmodel), "tokens.txt")
             if not os.path.isfile(token_list):
                 token_list = None
             self.tokenizer = build_tokenizer("bpe", spmodel, token_list)
