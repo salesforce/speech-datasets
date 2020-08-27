@@ -204,6 +204,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         """
         # For using the next() syntax
         self.iter = None
+        self.epoch = 0
         self.current_position = 0
 
         # Initialize parameters for distributed data loading
@@ -258,6 +259,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
 
             super().__init__(dataset, batch_size=batch_size, shuffle=False,
                              collate_fn=self.collate_fn, drop_last=drop_last)
+            self.len = len(self)
 
     @property
     def shuffle(self):
@@ -266,10 +268,6 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     @property
     def train(self):
         return self.dataset.train
-
-    @property
-    def epoch(self):
-        return self.dataset.seed
 
     def set_epoch(self, e):
         self.dataset.seed = e
@@ -304,15 +302,20 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         yield from super().__iter__()
 
     def next(self):
+        """Implement next function."""
         if self.iter is None:
             self.iter = iter(self)
         try:
-            self.current_position += 1
-            return next(self.iter)
+            ret = next(self.iter)
         except StopIteration:
+            self.iter = None
+            return self.next()
+        self.current_position += 1
+        if self.current_position == self.len:
+            self.epoch = self.epoch + 1
+            self.set_epoch(self.epoch)
             self.current_position = 0
-            self.set_epoch(self.epoch + 1)
-            return next(self.iter)
+        return ret
 
     def __enter__(self):
         return self
