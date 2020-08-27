@@ -88,12 +88,17 @@ with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as 
             # do evaluation...
 
     # next() syntax
+    train_loader.set_epoch(10)
     for i in range(50000):
         batch = train_loader.next()
         # do training...
 
+        # next() increments epoch & step within epoch automatically
+        epoch = train_loader.epoch
+        step_in_epoch = train_loader.current_position
+
         # do evaluation every 1000 steps
-        if i % 1000 == 999:
+        if (i + 1) % 1000 == 0:
             for batch in dev_loader:
                 # do evaluation...
 ```

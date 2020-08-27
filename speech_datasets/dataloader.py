@@ -194,8 +194,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             should not need to specify this manually in most use cases.
         :param spmodel: the path to a `sentencepiece` BPE model to use to
             tokenize the text
-        :param token_list: the path to a `sentencepiece` BPE units to use to
-            tokenize the text
+        :param token_list: the path to a list of `sentencepiece` BPE units to
+            use to tokenize the text
         :param n_transform_proc: the number of parallel processes to use to
             apply the data transformation (specified by `transform_conf`) to
             the data being loaded. Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
@@ -204,8 +204,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         """
         # For using the next() syntax
         self.iter = None
-        self.epoch = 0
-        self.current_position = 0
+        self.current_position = -1
 
         # Initialize parameters for distributed data loading
         is_dist = dist.is_available() and dist.is_initialized()
@@ -259,7 +258,6 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
 
             super().__init__(dataset, batch_size=batch_size, shuffle=False,
                              collate_fn=self.collate_fn, drop_last=drop_last)
-            self.len = len(self)
 
     @property
     def shuffle(self):
@@ -269,8 +267,12 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     def train(self):
         return self.dataset.train
 
-    def set_epoch(self, e):
-        self.dataset.seed = e
+    @property
+    def epoch(self):
+        return self.dataset.seed
+
+    def set_epoch(self, epoch):
+        self.dataset.seed = epoch
 
     def close(self):
         self.dataset.close()
@@ -298,24 +300,18 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             batch.append(data)
         return batch
 
-    def __iter__(self):
-        yield from super().__iter__()
-
     def next(self):
-        """Implement next function."""
+        """Return the next data batch."""
         if self.iter is None:
             self.iter = iter(self)
         try:
-            ret = next(self.iter)
+            self.current_position += 1
+            return next(self.iter)
         except StopIteration:
-            self.iter = None
-            return self.next()
-        self.current_position += 1
-        if self.current_position == self.len:
-            self.epoch = self.epoch + 1
-            self.set_epoch(self.epoch)
+            self.set_epoch(self.epoch + 1)
             self.current_position = 0
-        return ret
+            self.iter = iter(self)
+            return next(self.iter)
 
     def __enter__(self):
         return self
