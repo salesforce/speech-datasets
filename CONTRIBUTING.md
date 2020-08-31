@@ -26,7 +26,9 @@ command directed to an output pipe, which would produce the desired `.wav` file)
 contain multiple utterances (e.g. Switchboard).
 
 We recommend saving any helper scripts to `<dataset>/<asr1|tts1>/local` as well. More details on each of the above
-files can be found in Kaldi's official [documentation](https://kaldi-asr.org/doc/data_prep.html).
+files can be found in Kaldi's official [documentation](https://kaldi-asr.org/doc/data_prep.html). We also suggest that
+you update [`TEMPLATE/asr1/db.sh`](TEMPLATE/asr1/db.sh) or [`TEMPLATE/tts1/db.sh`](TEMPLATE/tts1/db.sh) with variables
+that specify the absolute path where one can find the downloaded, unprocessed dataset.
 
 Finally, you need to write a top-level `<dataset>/<asr1|tts1>/run.sh` script which invokes either `asr.sh` or 
 `tts.sh` with the appropriate dataset-specific arguments. The most important ones are `--fs` (the sampling frequency
@@ -34,7 +36,8 @@ in Hz, default `16000`), `--train-sets` (the training splits, required argument)
 evaluation splits, optional argument), and `--srctexts` (the `text` files (as described above) to use for training a
 language model & compiling a token inventory).
 
-The sampling frequency `--fs` is the frequency at which the raw audio will be resampled (if necessary) before being
+### Notes
+1. The sampling frequency `--fs` is the frequency at which the raw audio will be resampled (if necessary) before being
 dumped. If you specify `--fs` in `run.sh`, make sure to also change the value of `sample_frequency` in
 `conf/fbank.yaml` and `conf/fbank_pitch.yaml`! For example, compare
 [`swbd/asr1/run.sh`](swbd/asr1/run.sh) and [`swbd/asr1/conf/fbank.yaml`](swbd/asr1/conf/fbank.yaml) (sampling frequency
@@ -43,8 +46,18 @@ dumped. If you specify `--fs` in `run.sh`, make sure to also change the value of
 If you wanted to up-sample Switchboard to 16kHz, you would change these values to `16000`. 
 Conversely, if you wanted to down-sample LibriSpeech to 8kHz, you would change these values to `8000`.
 
-Finally, note that `--train-sets` and `--dev-eval-sets` are simply split names (`asr.sh` or `tts.sh` will look for split
-`<split>` in `data/<split>`), while `--srctexts` should specify actual filenames.
+2. Note that `--train-sets` and `--dev-eval-sets` are simply split names (`asr.sh` or `tts.sh` will look for split
+`<split>` in the directory `data/<split>`), while `--srctexts` should specify actual filenames.
+
+3. If the recipe depends on some special tools, then write the requirements to the top of `run.sh`:
+    ```bash
+    # e.g. flac command is required
+    if ! which flac &> /dev/null; then
+        echo "Error: flac is not installed"
+        return 1
+    fi
+    ```
+
 
 # Defining New Data Transformations
 To define a new data transformation, first create a new class that implements the interface

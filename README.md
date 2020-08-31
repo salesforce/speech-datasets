@@ -8,6 +8,7 @@
     2. [Data Preparation Recipes](#data-preparation-recipes)
     3. [High-Level Python Interface](#high-level-python-interface)
     4. [Example Training Code](#example-training-code)
+    5. [Debugging Notes](#debugging-notes)
 3. [Combining Datasets](#combining-datasets)
 4. [Adding Support for New Datasets](#adding-support-for-new-datasets)
 5. [Specifying Data Transformations](#specifying-data-transformations)
@@ -174,12 +175,19 @@ configuration files `<dataset>/<asr1|tts1>/conf/fbank.yaml` and `<dataset>/<asr1
 respectively. See the relevant (linked) section of [`CONTRIBUTING.md`](CONTRIBUTING.md#pre-computing-different-features)
 for more details.
 
-To run the script, you should navigate to `<dataset>/asr1` or `<dataset>/tts1` and invoke:
+Before you can run the data preparation script for any dataset, update the paths in
+[`TEMPLATE/asr1/db.sh`](TEMPLATE/asr1/db.sh) or [`TEMPLATE/tts1/db.sh`](TEMPLATE/tts1/db.sh). These should be the
+absolute paths (on your system) to the directories or archive files containing the downloaded datasets. For some open
+source datasets, we also provide download scripts, but in general, you will need to download the data yourself and
+update `db.sh` with its actual location.
+
+Once you have done this, navigate to `<dataset>/asr1` or `<dataset>/tts1` and invoke:
+
 ```shell script
 ./run.sh --stage <i> --stop-stage <j> --feats-type <raw|fbank|fbank_pitch> [other options]
 ```
 
-The 7 stages are as follows:
+The `run.sh` script proceeds in 7 stages (starting at `<i>` and ending at `<j>`). These stages are as follows:
 
 1. Dataset-specific preparation. This involves creating train/dev/eval splits and converting the dataset to a standard
 Kaldi-style file format. Note that all datasets are currently standardized to have lowercase text, where the only
@@ -271,6 +279,15 @@ To make our proposed workflow more concrete, we provide a minimal [example](trai
 `speech_datasets.SpeechDataLoader` to train a seq2seq transformer encoder-decoder model in PyTorch (this example also
 depends on Huggingface's `transformers` library, which can installed by invoking `pip install transformers`). A
 detailed walkthrough of this code can be found [here](train_example/README.md).
+
+### Debugging Notes
+1. If your code hangs, examine your log files. If you find `OSError: [Errno 12] Cannot allocate memory`, then try
+    1. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
+    this manually, the default is `4096`.
+    2. Setting `n_transform_proc` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
+    specify this manually, the default is `math.ceil(os.n_cpu() / num_replicas) - 1`, where `num_replicas` is the
+    number of distributed replicas (either provided as an argument, or inferred automatically).
+    3. Adding additional swap memory to your system.
 
 # Combining Datasets
 ### Loading from Multiple Datasets
