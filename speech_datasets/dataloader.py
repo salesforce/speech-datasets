@@ -167,8 +167,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  task="asr", precomputed_feats_type="raw",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, train=False, shuffle=False, drop_last=False,
-                 num_replicas=None, rank=None, spmodel=None, token_list=None,
-                 n_transform_proc=None, data_cache_mb=4096):
+                 num_replicas=None, rank=None, n_transform_proc=None,
+                 data_cache_mb=4096, spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.
             Each dataset should be formatted as `<dataset_name>/<split_name>`,
@@ -188,19 +188,26 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             contains fewer elements than `batch_size`
         :param num_replicas: the number of distributed copies of the dataset
             being used, e.g. for training a `DistributedDataParallel` model.
-            You should not need to specify this manually in most use cases.
+            If you are running multiple jobs in parallel, and want each job to
+            work on a different subset of the dataset, set this parameter to the
+            total number of jobs. You probably don't need to specify this
+            manually if you are using torch.distributed.
         :param rank: the index (amongst all distributed workers) of the current
-            worker, e.g. for training a `DistributedDataParallel` model. You
-            should not need to specify this manually in most use cases.
+            worker, e.g. for training a `DistributedDataParallel` model. If you
+            are running multiple jobs in parallel, and want each job to work on
+            a different subset of the dataset, set this parameter to the index
+            of the current job. You probably don't need to specify this manually
+            if you are using torch.distributed.
+        :param n_transform_proc: the number of parallel processes to use to
+            apply the data transformation (specified by `transform_conf`) to
+            the data being loaded.  Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
+        :param data_cache_mb: the number of megabytes the cache (for pre-fetching
+            archive files into memory) can contain.
         :param spmodel: the path to a `sentencepiece` BPE model to use to
             tokenize the text
         :param token_list: the path to a list of `sentencepiece` BPE units to
-            use to tokenize the text
-        :param n_transform_proc: the number of parallel processes to use to
-            apply the data transformation (specified by `transform_conf`) to
-            the data being loaded. Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
-        :param data_cache_mb: the number of megabytes the cache (for pre-fetching
-            archive files into memory) can contain.
+            use to tokenize the text. The indices in `token_list` override those
+            in `spmodel`.
         """
         # For using the next() syntax
         self.iter = None
