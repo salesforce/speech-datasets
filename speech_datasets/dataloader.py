@@ -327,6 +327,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             if self.tokenizer is not None:
                 data["labels"] = torch.tensor(
                     self.tokenizer.text2ids(data["text"]))
+            data.pop("rate", None)
+            data["uttid"] = uttid
             batch.append(data)
         return batch
 

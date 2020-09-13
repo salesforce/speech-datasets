@@ -277,11 +277,12 @@ This is because the asynchronous elements of the data loader (for pre-fetching d
 in the background) need to be shut down manually to fully terminate.
 
 Finally, each batch is a list of dictionaries, one dictionary per utterance. The dictionary has the following keys:
+- `uttid`: the utterance ID (`str`)
 - `x`: the audio of the utterance (`torch.FloatTensor`), after any relevant data transformations have been applied
 - `speaker`: the speaker of this utterance (`str`)
 - `text`: a text transcription of the utterance (`str`)
 - `labels`: a sequence of token indexes (`torch.IntTensor`) corresponding to the text transcript
-(only present if `spmodel` is provided to the constructor)
+  (only present if `spmodel` is provided to the constructor)
 
 ### Example Training Code
 To make our proposed workflow more concrete, we provide a minimal [example](train_example/main.py) which uses 
