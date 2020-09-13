@@ -9,6 +9,12 @@ A transformation config file can be provided either to determine the process use
 overriding `conf/fbank.sh` or `conf/fbank_pitch.sh`), or to apply the transformation to data online (i.e. by supplying
 it as the `transform_conf` argument of `speech_datasets.SpeechDataLoader`). 
 
+**PLEASE NOTE THAT ANY TRANSFORMATIONS WHICH SUBSTANTIALLY ALTER THE LENGTH OF AN INPUT MUST HAVE A
+`self.sample_frequency` OR `self.frame_shift_ms` INSTANCE VARIABLE!** This is to ensure that length-adaptive batching
+works properly, and it is most important for feature extractions, which can change an input's length by multiple
+orders of magnitude. `self.sample_frequency` should correspond to the input of that transformation, and
+`self.frame_shift_ms` should correspond to the output (if it has both).
+
 We support the following data transformations: 
 # Feature Extraction
 We support feature computation using [PyKaldi](https://github.com/pykaldi/pykaldi), which simply acts as a Python

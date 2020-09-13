@@ -5,14 +5,13 @@
 
 """pytorch dataset and dataloader implementation for chainer training."""
 from collections import defaultdict
+import itertools
 import logging
-import math
 import os
 import shutil
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-import numpy as np
 import torch
 import torch.utils.data
 import torch.distributed as dist
@@ -166,9 +165,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     def __init__(self, datasets: Union[str, List[str]],
                  task="asr", precomputed_feats_type="raw",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
-                 batch_size=1, train=False, shuffle=False, drop_last=False,
-                 num_replicas=None, rank=None, n_transform_proc=None,
-                 data_cache_mb=4096, spmodel=None, token_list=None):
+                 batch_size=1, max_len=None, train=False, shuffle=False,
+                 num_replicas=None, rank=None, ensure_equal_parts=True,
+                 n_transform_proc=None, data_cache_mb=4096,
+                 spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.
             Each dataset should be formatted as `<dataset_name>/<split_name>`,
@@ -184,8 +184,9 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         :param train: whether the dataset's transform should be applied in
             training mode
         :param shuffle: whether to shuffle the dataset
-        :param drop_last: whether to omit the last batch in the epoch if it
-            contains fewer elements than `batch_size`
+        :param max_len: the maximum average utterance length of a batch (after
+            any data transformation is applied). The sum of utterance lengths
+            in the batch is restricted to be less than `batch_size * max_len`.
         :param num_replicas: the number of distributed copies of the dataset
             being used, e.g. for training a `DistributedDataParallel` model.
             If you are running multiple jobs in parallel, and want each job to
@@ -198,6 +199,11 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             a different subset of the dataset, set this parameter to the index
             of the current job. You probably don't need to specify this manually
             if you are using torch.distributed.
+        :param ensure_equal_parts: Whether to ensure that all parallel processes
+            receive the same number of batches to process. This should always be
+            enabled if you are training with `DistributedDataParallel`, but you
+            may wish to disable it if you are evaluating your model and wish to
+            have each utterance processed exactly once.
         :param n_transform_proc: the number of parallel processes to use to
             apply the data transformation (specified by `transform_conf`) to
             the data being loaded.  Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
@@ -242,11 +248,33 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         # HDF5Reader gets speaker & text info, but we need to furnish these
         # manually for the other readers
         self.aux_utt_info = {}
-        if reader_class is not HDF5Reader:
-            for scp in scp_files:
+        for scp in scp_files:
+            scp_dir = os.path.dirname(scp)
+            if reader_class is not HDF5Reader:
                 self.aux_utt_info.update(consolidate_utt_info(
-                    text=os.path.join(os.path.dirname(scp), "text"),
-                    utt2spk=os.path.join(os.path.dirname(scp), "utt2spk")))
+                    text=os.path.join(scp_dir, "text"),
+                    utt2spk=os.path.join(scp_dir, "utt2spk"),
+                    utt2num_frames=os.path.join(scp_dir, "utt2num_frames")))
+            else:
+                self.aux_utt_info.update(consolidate_utt_info(
+                    utt2num_frames=os.path.join(scp_dir, "utt2num_frames")))
+
+        # Initialize the transform & determine how it re-samples inputs
+        transform = Transformation(transform_conf, precomputed_feats_type)
+        input_hz, output_hz = None, None
+        for fn in transform.functions:
+            if hasattr(fn, "sample_frequency"):
+                if input_hz is None:
+                    input_hz = fn.sample_frequency
+                output_hz = fn.sample_frequency
+            if hasattr(fn, "frame_shift_ms"):
+                if input_hz is None:
+                    input_hz = 1000 / fn.frame_shift_ms
+                output_hz = 1000 / fn.frame_shift_ms
+
+        # Get the approximate length of each utterance, post-transformation
+        ratio = output_hz / input_hz if input_hz and output_hz else 1.0
+        utt2len = {k: v["length"] * ratio for k, v in self.aux_utt_info.items()}
 
         # Combine all the relevant SCP files into a single temporary file, and
         # use this temporary file to initialize the actual dataset
@@ -256,15 +284,16 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                     with open(scp, "rb") as src:
                         shutil.copyfileobj(src, dst)
 
-            transform = Transformation(transform_conf, precomputed_feats_type)
             dataset = reader_class(
                 f"scp:{tmpfile.name}", return_dict=True, train=train,
                 shuffle=shuffle, n_parts=num_replicas, i_part=rank,
                 transform=transform, pre_fetch_next_epoch=True,
-                nproc=n_transform_proc, capacity_mb=data_cache_mb)
+                nproc=n_transform_proc, capacity_mb=data_cache_mb,
+                batch_size=batch_size, max_len=max_len,
+                utt2len=utt2len, ensure_equal_parts=ensure_equal_parts)
 
-            super().__init__(dataset, batch_size=batch_size, shuffle=False,
-                             collate_fn=self.collate_fn, drop_last=drop_last)
+            super().__init__(dataset, batch_size=1, shuffle=False,
+                             collate_fn=self.collate_fn)
 
     @property
     def shuffle(self):
@@ -285,25 +314,19 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         self.dataset.close()
 
     def __len__(self):
-        n_utts = len(self.dataset)
-        if self.drop_last:
-            return math.floor(n_utts / self.batch_size)
-        else:
-            return math.ceil(n_utts / self.batch_size)
+        return len(self.dataset)
 
     def collate_fn(self, items):
         batch = []
+        items = itertools.chain.from_iterable(items)
         for uttid, data in items:
-            if isinstance(data, dict):
-                data.update(self.aux_utt_info.get(uttid, {}))
-                data["x"] = torch.from_numpy(data["x"]).float()
-                if self.tokenizer is not None:
-                    data["labels"] = torch.tensor(
-                        self.tokenizer.text2ids(data["text"]))
-
-            elif isinstance(data, np.ndarray):
-                data = torch.from_numpy(data).float()
-
+            aux_info = self.aux_utt_info.get(uttid, {})
+            aux_info.pop("length", None)
+            data.update(aux_info)
+            data["x"] = torch.from_numpy(data["x"]).float()
+            if self.tokenizer is not None:
+                data["labels"] = torch.tensor(
+                    self.tokenizer.text2ids(data["text"]))
             batch.append(data)
         return batch
 

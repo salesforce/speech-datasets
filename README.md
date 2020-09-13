@@ -235,23 +235,26 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `batch_size`: (default `1`): batch size
 - `train`: (default `False`): whether the dataset's transform should be applied in training mode
 - `shuffle`: (default `False`): whether to shuffle the dataset, using the policy described [above](#random-policy)
-- `drop_last`: (default `False`): whether to omit the last batch in the epoch (if it contains fewer elements than
-   `batch_size`)
+- `max_len`: the maximum average utterance length of a batch (after any data transformation is applied). The sum of
+  utterance lengths in the batch is restricted to be at most `batch_size * max_len`.
 - `num_replicas`: (default `None`): the number of distributed copies of the dataset being used, e.g. for training
-   a `DistributedDataParallel` model. If you are running multiple jobs in parallel, and want each job to work on a
-   different subset of the dataset, set this parameter to the total number of jobs. You probably don't need to specify
-   this manually if you are using `torch.distributed`.
+  a `DistributedDataParallel` model. If you are running multiple jobs in parallel, and want each job to work on a
+  different subset of the dataset, set this parameter to the total number of jobs. You probably don't need to specify
+  this manually if you are using `torch.distributed`.
 - `rank`: (default `None`): the index (amongst all distributed workers) of the current worker, e.g. for training
-   a `DistributedDataParallel` model. If you are running multiple jobs in parallel, and want each job to work on
-   a different subset of the dataset, set this parameter to the index of the current job. You probably don't need
-   to specify this manually if you are using `torch.distributed`.
+  a `DistributedDataParallel` model. If you are running multiple jobs in parallel, and want each job to work on
+  a different subset of the dataset, set this parameter to the index of the current job. You probably don't need
+  to specify this manually if you are using `torch.distributed`.
+- `ensure_equal_parts`: Whether to ensure that all parallel processes receive the same number of batches to process.
+  This should always be enabled if you are training with `DistributedDataParallel`, but you may wish to disable it
+  if you are evaluating your model and wish to have each utterance processed exactly once.
 - `n_transform_proc`: (default `None`): the number of parallel processes to use to apply the data transformation
-(specified by `transform_conf`) to the data being loaded. Default is `math.ceil(os.n_cpu() / num_replicas) - 1`.
+  (specified by `transform_conf`) to the data being loaded. Default is `math.ceil(os.n_cpu() / num_replicas) - 1`.
 - `data_cache_mb`: (default `4096`): the number of megabytes the cache (for pre-fetching archive files into memory,
-as described [above](#archive-cache)) can contain. 
+  as described [above](#archive-cache)) can contain. 
 - `spmodel`: (default `None`): the path to a `sentencepiece` BPE model to use to tokenize the text
 - `token_list`: (default `None`): the path to a list of `sentencepiece` BPE units to use to tokenize the text.
-   the indices in `token_list` override those in `spmodel`
+  the indices in `token_list` override those in `spmodel`
 
 The `speech_datasets.SpeechDataLoader` class inherits from `torch.utils.data.DataLoader`, and it implements `__len__`
 and `__iter__` methods. To change the random seed used to order the data fetched, one should call

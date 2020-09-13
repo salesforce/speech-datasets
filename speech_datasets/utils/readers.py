@@ -102,8 +102,10 @@ class BaseReader(IterableDataset):
     """Uses a .scp file to read data from .h5 files. Pre-fetches .h5 files into
     dictionaries stored in memory for efficient access."""
     def __init__(self, rspecifier, return_shape=False, return_dict=False,
-                 transform: Transformation = None, train=False, capacity_mb=4096,
-                 nproc: int = None, pre_fetch_next_epoch=False,
+                 transform: Transformation = None, train=False,
+                 batch_size=1, max_len: int = None, utt2len=None,
+                 ensure_equal_parts=True, pre_fetch_next_epoch=False,
+                 capacity_mb=4096, nproc: int = None,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(
@@ -127,12 +129,22 @@ class BaseReader(IterableDataset):
                     f"Cannot shuffle data if reading file directly. "
                     f"rspecifier={rspecifier}, shuffle=True. "
                     f"Change rspecifier to scp, or shuffle=False.")
+            if max_len is not None:
+                raise ValueError(
+                    f"Cannot enforce dynamic batching if rreading file directly. "
+                    f"rspecifier={rspecifier}, max_len={max_len}. "
+                    f"Change rspecifier to scp, or max_len=None.")
 
         # For loading data from SCP
         self._n_parts = n_parts
         self._i_part = i_part
         self._seed = self._fetch_seed = seed
         self._shuffle = shuffle
+        self._batch_size = batch_size
+        self._max_len = max_len
+        self._utt2len = utt2len
+        self._ensure_equal_parts = ensure_equal_parts
+        self._num_batches = None
 
         # For determining the data format to return
         self.return_dict = return_dict
@@ -201,7 +213,7 @@ class BaseReader(IterableDataset):
         if self.ark_or_scp == "ark":
             raise RuntimeError(
                 "Cannot get length of HDF5Reader reading directly from h5")
-        return math.ceil(self._num_utts / self._n_parts)
+        return self._num_batches
 
     def close(self):
         """Empties the queue and suspends loading any files not yet loaded."""
@@ -234,11 +246,17 @@ class BaseReader(IterableDataset):
     def shuffle(self):
         return self._shuffle
 
-    def get_scp_dict(self):
+    def get_scp_dict_and_bszs(self):
         """Shuffles the SCP dict and gets the relevant split to load from."""
-        return split_scp_dict(
+        all_dicts_and_bszs = split_scp_dict(
             self._full_scp_dict, n_parts=self._n_parts,
-            randomize=self.shuffle, seed=self._fetch_seed)[self._i_part]
+            randomize=self.shuffle, seed=self._fetch_seed,
+            batch_size=self._batch_size, max_len=self._max_len,
+            utt2len=self._utt2len, ensure_equal_parts=self._ensure_equal_parts)
+        scp_dict, bszs = all_dicts_and_bszs[self._i_part]
+        if self._num_batches is None:
+            self._num_batches = len(bszs)
+        return scp_dict, bszs
 
     def load_files(self, scp_dict=None):
         """Schedules a background thread to read the relevant file dicts from
@@ -246,7 +264,7 @@ class BaseReader(IterableDataset):
         The thread finishes as soon as it fails to load a file (which happens
         if queue.clear() is called)."""
         def wrapper(d):
-            d = self.get_scp_dict() if d is None else d
+            d, bszs = self.get_scp_dict_and_bszs() if d is None else d
             for path, uttid_locs in d.items():
                 if not self.queue.put(path, uttid_locs):
                     break
@@ -284,7 +302,8 @@ class BaseReader(IterableDataset):
         allowed cache size). Yields data points one at a time."""
         if self.ark_or_scp == "scp":
             # Fetch data for this epoch in the background (if not pre-fetched)
-            scp_dict = self.get_scp_dict()
+            scp_dict, bszs = self.get_scp_dict_and_bszs()
+            self._num_batches = len(bszs)
             if (self.files_loaded is None or self.files_loaded.done() or
                     self.files_loaded.cancelled()) and self.queue.empty():
                 self.load_files(scp_dict)
@@ -302,14 +321,28 @@ class BaseReader(IterableDataset):
                     self._fetch_seed += 1
                     self.load_files()
 
-                yield from self.output_iterator(file_dict)
+                output_iterator = self.output_iterator(file_dict)
+                for bsz in bszs:
+                    yield [next(output_iterator) for _ in range(bsz)]
 
         else:  # self.ark_or_scp == "ark"
             if self.filepath == "-":  # Required h5py>=2.9 for hdf5
                 filepath = io.BytesIO(sys.stdin.buffer.read())
             else:
                 filepath = self.filepath
-            yield from self.get_file_dict(filepath)
+            file_dict = self.get_file_dict(filepath)
+            output_iterator = self.output_iterator(file_dict)
+
+            done = False
+            while not done:
+                batch = []
+                try:
+                    while len(batch) < self._batch_size:
+                        batch.append(next(output_iterator))
+                    yield batch
+                except StopIteration:
+                    done = True
+                    yield batch
 
 
 class KaldiReader(BaseReader):

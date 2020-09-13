@@ -152,6 +152,7 @@ def parse_scp_line(line: str) -> Tuple[str, str, str]:
 
 
 def consolidate_utt_info(scp: str = None, text: str = None, utt2spk: str = None,
+                         utt2num_frames: str = None,
                          permissive: bool = True) -> Dict[str, Dict[str, str]]:
     """Consolidates all the info from a scp, text, and utt2spk file into
      a single dictionary."""
@@ -183,6 +184,13 @@ def consolidate_utt_info(scp: str = None, text: str = None, utt2spk: str = None,
             for line in f:
                 k, speaker = line.rstrip().split(None, maxsplit=1)
                 utts[k]["speaker"] = speaker
+
+    if utt2num_frames is not None:
+        with read(utt2num_frames) as f:
+            expected.add("length")
+            for line in f:
+                k, length = line.rstrip().split(None, maxsplit=1)
+                utts[k]["length"] = int(length)
 
     # Validate that all the utterances have all the relevant info
     non_none_files = ", ".join(x for x in [scp, text, utt2spk] if x)
@@ -230,12 +238,16 @@ def parse_scp_file(scp_fname) -> Dict[str, List[Tuple[str, str]]]:
 
 
 def split_scp_dict(scp_dict: Dict[str, List[Tuple[str, str]]],
-                   n_parts: int = None, randomize: bool = False,
-                   seed: int = None) -> List[Dict[str, List[Tuple[str, str]]]]:
+                   n_parts=1, randomize=False, seed: int = None,
+                   batch_size=1, max_len=None, utt2len=None,
+                   ensure_equal_parts=True) \
+        -> List[Tuple[Dict[str, List[Tuple[str, str]]], List[int]]]:
     """Splits a `scp_dict` returned by `parse_scp_file()` into `n_parts` sub-
     parts. These sub-parts proceed one archive file at a time, but the order of
     these archive files, as well as the order of utterances within them, can
-    be randomized if desired."""
+    be randomized if desired. Furthermore a series of batch sizes corresponding
+    to each part is returned."""
+    assert batch_size >= 1
     archives = list(scp_dict.keys())
     n_archives = len(archives)
 
@@ -251,62 +263,77 @@ def split_scp_dict(scp_dict: Dict[str, List[Tuple[str, str]]],
         archive2utt_order = {archive: np.arange(len(scp_dict[archive])) for
                              archive in archives}
 
-    # Some parts will get 1 extra utterance from the first archive
-    n_utts = sum(len(uttid_locs) for uttid_locs in scp_dict.values())
-    n_utts_per_part, extra = divmod(n_utts, n_parts)
-    if n_utts < n_parts:
-        raise RuntimeError(f"Cannot partitition a SCP with {n_utts} utterances "
-                           f"into {n_parts} parts (n_utts < n_parts).")
+    # Get all utterances in the right order (along with their archive)
+    all_utts = [(archives[i], *scp_dict[archives[i]][j])  # (path, uttid, loc)
+                for i in archive_order
+                for j in archive2utt_order[archives[i]]]
 
-    parts, j, k = [], 0, 0
+    # Compute the appropriate sequence (possibly dynamic) of batch sizes
+    start, batch_sizes = 0, []
+    while start < len(all_utts):
+        tmp_end = min(start + batch_size, len(all_utts))
+        if max_len is None or utt2len is None:
+            end = tmp_end
+        else:
+            candidate_utts = all_utts[start:tmp_end]
+            lens = [utt2len[uttid] for archive, uttid, loc in candidate_utts]
+            dynamic_batch_size = (np.cumsum(lens) <= max_len * batch_size).sum()
+            end = start + max(1, dynamic_batch_size)
+        batch_sizes.append(end - start)
+        start = end
+
+    # Some batches will get 1 extra batch from the first part
+    n_utts, n_batches = len(all_utts), len(batch_sizes)
+    n_batches_per_part, extra = divmod(n_batches, n_parts)
+    if n_batches < n_parts:
+        raise RuntimeError(
+            f"Cannot partition a SCP with {n_utts} utterances into "
+            f"{n_parts} parts with batch size {batch_size}. This causes "
+            f"the number of batches ({n_batches}) to be less than the "
+            f"number of parts ({n_parts}).")
+
+    # Determine the sequence of batch sizes for each part
+    part_n_batches = [n_batches_per_part + int(i < extra)
+                      for i in range(n_parts)]
+    part_j0_batch = np.cumsum([0, *part_n_batches])
+    part_batch_sizes = [batch_sizes[part_j0_batch[i]:part_j0_batch[i+1]]
+                        for i in range(n_parts)]
+
+    # Determine the sequence of utterances for each part
+    part_n_utts = [sum(x) for x in part_batch_sizes]
+    part_j0_utt = np.cumsum([0, *part_n_utts])
+    part_utts = [all_utts[part_j0_utt[i]:part_j0_utt[i+1]]
+                 for i in range(n_parts)]
+
+    # Ensure each part has the same number of batches (if desired)
+    if ensure_equal_parts and extra > 0:
+        extra_batch_sizes = batch_sizes[:n_parts - extra]
+        extra_j0_utt = np.cumsum([0, *extra_batch_sizes])
+        for i, j in enumerate(range(extra, n_parts)):
+            part_batch_sizes[j].append(batch_sizes[i])
+            part_utts[j].extend(all_utts[extra_j0_utt[i]:extra_j0_utt[i+1]])
+
+    if ensure_equal_parts:
+        assert all(len(part_batch_sizes[i]) == len(part_batch_sizes[0])
+                   for i in range(n_parts)), \
+            "All parts should have the same number of batches."
+
+    assert all(sum(part_batch_sizes[i]) == len(part_utts[i])
+               for i in range(n_parts)),\
+        "Sum of batch sizes for each part should match the number of " \
+        "utterances in the part."
+
+    # Construct each part as an ordered dict (archive -> List[uttid, loc])
+    parts = []
     for i in range(n_parts):
         current_part = OrderedDict()
-        n, max_n = 0, n_utts_per_part + int(i < extra)
-        while n < max_n:
-            # Get utterances from the current archive (up til max_n)
-            archive = archives[archive_order[j]]
-            utt_idxs = archive2utt_order[archive][k:k+(max_n-n)]
-
-            # Add utterances from the current archive in the desired order
-            all_archive_utts = scp_dict[archive]
-            current_part[archive] = [all_archive_utts[m] for m in utt_idxs]
-
-            # Update the total number of utterances; move on to the next archive
-            # if we have exhausted this one
-            n += len(utt_idxs)
-            if len(utt_idxs) == len(all_archive_utts):
-                k = 0
-                j += 1
-
-        assert n == max_n
-
-        # If i >= n_utts % n_parts > 0, we need to pull one extra utterance
-        # from the start of the dataset (if n % n_parts > 0, but
-        # i < n_utts % n_parts, we just took one extra data point up front)
-        if i >= extra > 0:
-            # Find the archive from which to pull an extra utterance
-            j0, skip = 0, 0
-            archive = archives[archive_order[j0]]
-            while skip + len(archive2utt_order[archive]) < (i - extra):
-                j0 += 1
-                skip += len(archive2utt_order[archive])
-                archive = archives[archive_order[j0]]
-
-            # Obtain the index of the extra utterance within the archive, and
-            # add it to this part
-            extra_utt_idx = archive2utt_order[archive][i - extra - skip]
-            uttid, loc = scp_dict[archive][extra_utt_idx]
-            if archive in current_part and uttid in current_part[archive]:
-                raise RuntimeError(
-                    f"{n_utts} utterances is too few to split int {n_parts} "
-                    f"parts. Tried to add the same utterance twice to one part.")
-            elif archive not in current_part:
+        for archive, uttid, loc in part_utts[i]:
+            if archive not in current_part:
                 current_part[archive] = []
             current_part[archive].append((uttid, loc))
-
         parts.append(current_part)
 
-    return parts
+    return list(zip(parts, part_batch_sizes))
 
 
 def get_combo_idx(datasets: List[str], task: str) -> int:
