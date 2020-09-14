@@ -177,9 +177,9 @@ for more details.
 
 Before you can run the data preparation script for any dataset, update the paths in
 [`TEMPLATE/asr1/db.sh`](TEMPLATE/asr1/db.sh) or [`TEMPLATE/tts1/db.sh`](TEMPLATE/tts1/db.sh). These should be the
-absolute paths (on your system) to the directories or archive files containing the downloaded datasets. For some open
-source datasets, we also provide download scripts, but in general, you will need to download the data yourself and
-update `db.sh` with its actual location.
+absolute paths (on your system) to the directories and/or archive files containing the downloaded datasets. For some
+open source datasets, we also provide download scripts, but in general, you will need to download the data yourself
+and update `db.sh` with its actual location.
 
 Once you have done this, navigate to `<dataset>/asr1` or `<dataset>/tts1` and invoke:
 

@@ -33,6 +33,19 @@ base_url=www.openslr.org/resources/12
 
 
 spk_file="${LIBRISPEECH}/LibriSpeech/SPEAKERS.TXT"
+if [ ! -f "$spk_file" ]; then
+    if ! which wget >/dev/null; then
+        log "$0: wget is not installed."
+        exit 1
+    fi
+    md_file="raw-metadata.tar.gz"
+    if ! wget -P "${LIBRISPEECH}" "${base_url}/${md_file}"; then
+        log "$0: error executing wget ${base_url}/${md_file}"
+        exit 1
+    fi
+    tar -C "${LIBRISPEECH}" -xzvf "${LIBRISPEECH}/${md_file}"
+    rm "${LIBRISPEECH}/${md_file}"
+fi
 [ ! -f "$spk_file" ] && log "$0: expected file $spk_file to exist" && exit 1
 
 for dset in "$@"; do

@@ -16,7 +16,7 @@ log() {
 if [ -z "${SPEECHOCEAN_053}" ]; then
     log "Please fill the value of 'SPEECHOCEAN_053' in db.sh"
     exit 1
-elif [ ! -e "${SPEECHOCEAN_053}" ]; then
+elif [ ! -d "${SPEECHOCEAN_053}" ]; then
     log "Make sure speechocean/King-ASR-053 has been properly extracted in ${SPEECHOCEAN_053}"
     exit 1
 fi
@@ -24,7 +24,7 @@ mkdir -p data/053_train data/053_dev data/053_test
 if [ -z "${SPEECHOCEAN_066}" ]; then
     log "Please fill the value of 'SPEECHOCEAN_066' in db.sh"
     exit 1
-elif [ ! -e "${SPEECHOCEAN_066}" ]; then
+elif [ ! -d "${SPEECHOCEAN_066}" ]; then
     log "Make sure speechocean/King-ASR-066 has been properly extracted in ${SPEECHOCEAN_066}"
     exit 1
 fi
@@ -38,7 +38,7 @@ for dset in ${dsets}; do
     if [ -z "${src}" ]; then
         log "Fill in the value of 'SPEECHOCEAN_${dset}' in db.sh"
     fi
-    if [ ! -e "${src}" ]; then
+    if [ ! -d "${src}" ]; then
         log "Make sure that speechocean/King-ASR-${dset} has been properly extracted in ${src}"
     fi
 

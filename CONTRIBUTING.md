@@ -28,7 +28,9 @@ contain multiple utterances (e.g. Switchboard).
 We recommend saving any helper scripts to `<dataset>/<asr1|tts1>/local` as well. More details on each of the above
 files can be found in Kaldi's official [documentation](https://kaldi-asr.org/doc/data_prep.html). We also suggest that
 you update [`TEMPLATE/asr1/db.sh`](TEMPLATE/asr1/db.sh) or [`TEMPLATE/tts1/db.sh`](TEMPLATE/tts1/db.sh) with variables
-that specify the absolute path where one can find the downloaded, unprocessed dataset.
+that specify the absolute path where one can find the downloaded, unprocessed dataset. Note that for most datasets
+which don't come with a `download_and_untar.sh` script, we allow specify both an archive file (typically `tar.gz`) and
+a directory to extract it to.
 
 Finally, you need to write a top-level `<dataset>/<asr1|tts1>/run.sh` script which invokes either `asr.sh` or 
 `tts.sh` with the appropriate dataset-specific arguments. The most important ones are `--fs` (the sampling frequency

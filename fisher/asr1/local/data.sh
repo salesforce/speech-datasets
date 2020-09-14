@@ -13,13 +13,8 @@ log() {
 
 
 # Extract & prepare Fisher
-if [ "$(echo "${FISHER}" | wc -w)" != 4 ]; then
-    log "Fill the value of 'FISHER' in db.sh (4 items required; last 2 should be pre-extracted)"
-fi
-fisher_sources="/export/share/ybzhou/dataset/LDC/LDC2004T19/fe_03_p1_tran_LDC2004T19.tgz "
-fisher_sources+="/export/share/ybzhou/dataset/LDC/LDC2005T19/LDC2005T19.tgz"
-for (( i=1; i<=2; i++ )); do
-    src=$(echo "${fisher_sources}" | cut -d " " -f $i)
+for (( i=1; i<=$(echo "${FISHER_TGZ}" | wc -w); i++ )); do
+    src=$(echo "${FISHER_TGZ}" | cut -d " " -f $i)
     dst=$(echo "${FISHER}" | cut -d " " -f $i)
     if [ ! -e "${dst}" ]; then
         mkdir -p "${dst}"

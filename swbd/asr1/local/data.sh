@@ -18,7 +18,7 @@ if [ -z "${SWBD1}" ]; then
 elif [ ! -e "${SWBD1}" ]; then
     mkdir -p "${SWBD1}"
     {
-      tar xzvf /export/share/ybzhou/dataset/LDC/swb1_LDC97S62.tgz -C "${SWBD1}"
+      tar xzvf ${SWBD1_TGZ} -C "${SWBD1}"
     } || {
       log "Failed to extract SWBD1"
       exit 1
@@ -43,12 +43,11 @@ log "local/swbd1_data_prep.sh ${SWBD1}"
 local/swbd1_data_prep.sh "${SWBD1}"
 
 # Extract & prepare EVAL-2000
-eval2000_sources="/export/share/ybzhou/dataset/LDC/hub5e_00_LDC2002S09.tgz /export/share/ybzhou/dataset/LDC/LDC2002T43.tgz"
 if [ "$(echo "${EVAL2000}" | wc -w)" != 2 ]; then
     log "Fill the value of 'EVAL2000' in db.sh (2 items required, hub5e_00 and hub5)"
 fi
 for (( i=1; i<=2; i++ )); do
-  src=$(echo "${eval2000_sources}" | cut -d " " -f $i)
+  src=$(echo "${EVAL2000_TGZ}" | cut -d " " -f $i)
   dst=$(echo "${EVAL2000}" | cut -d " " -f $i)
   # hub5e is in a sub-directory
   if [ $i = 1 ]; then
@@ -78,7 +77,7 @@ elif [ ! -e "${RT03}" ]; then
     RT03_BASE="$(dirname "${RT03}")"
     mkdir -p "${RT03_BASE}"
     {
-      tar xzvf /export/share/ybzhou/dataset/LDC/rt_03_LDC2007S10.tgz -C "${RT03_BASE}"
+      tar xzvf "${RT03_TGZ}" -C "${RT03_BASE}"
     } || {
       log "Failed to extract SWBD1"
       exit 1
