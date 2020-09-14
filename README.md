@@ -131,8 +131,13 @@ make clean all CONDA=<conda_path> VENV_NAME=<venv_name> PYTHON_VERSION=<python_v
 ```
 By default, `<conda_path>` is the system's installation of `conda`, `<venv_name>` is `datasets`, `<python_ver>` is
 `3.7.3`, and `<torch_ver>` is `1.4.0`. Note that we require `torch>=1.2.0`. If you don't have `conda` installed
-already, the `Makefile` will install it for you in `tools/venv`; otherwise, `tools/venv` will be a symbolic link to your
-system's `conda` directory.
+already, the `Makefile` will install it for you in `tools/venv`; otherwise, `tools/venv` will be a symbolic link to
+your system's `conda` directory.
+
+On systems which use the `apt` package manager, the script [`tools/install_pkgs.sh`](tools/install_pkgs.sh) will
+automatically install all other binaries you need. These binaries are needed to run the data preparation scripts.
+Run this separately from the `Makefile`.
+
 If you wish to use this package in conjunction with ESPNet, run ESPNet's `Makefile` without specifying a Python binary
 (i.e. DON'T specify the `PYTHON=<path>` option as done
 [here](https://espnet.github.io/espnet/installation.html#create-virtualenv-from-an-existing-python)). Then, run
