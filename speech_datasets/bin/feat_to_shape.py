@@ -47,9 +47,9 @@ def main():
     else:
         preprocessing = None
 
-    for utt, mat in file_reader_helper(
+    for utt, shape in file_reader_helper(
             args.rspecifier, args.filetype, return_shape=True, transform=preprocessing):
-        shape_str = ",".join(map(str, mat))
+        shape_str = ",".join(map(str, shape))  # shape is a tuple of ints
         args.out.write("{} {}\n".format(utt, shape_str))
 
 

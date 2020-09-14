@@ -37,9 +37,9 @@ def _weakref_close(reader_ref):
         reader.close()
 
 
-def file_reader_helper(rspecifier: str, filetype: str, train=False,
+def file_reader_helper(rspecifier: str, filetype: str, train=True,
                        return_shape: bool = False, return_dict: bool = False,
-                       transform: Transformation = None, seed: int = None):
+                       transform: Transformation = None):
     """Read uttid and array in kaldi style
 
     This function might be a bit confusing as "ark" is used
@@ -54,8 +54,6 @@ def file_reader_helper(rspecifier: str, filetype: str, train=False,
                      the matrix & other associated data. For HDF5 only.
         transform: transformation to apply to signal (e.g. feature extraction,
                    speed perturbation, spectral augmentation, etc.)
-        seed: Random seed to use for randomizing data loading.
-              For HDF5 with scp rspecifier only.
     Returns:
         Generator[Tuple[str, np.ndarray], None, None]:
 
@@ -73,13 +71,13 @@ def file_reader_helper(rspecifier: str, filetype: str, train=False,
     """
     if filetype == "mat":
         return KaldiReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, seed=seed, nproc=1)
+                           transform=transform, train=train, nproc=1)
     elif filetype == "hdf5":
         return HDF5Reader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                          transform=transform, train=train, seed=seed, nproc=1)
+                          transform=transform, train=train, nproc=1)
     elif filetype == "sound":
         return SoundReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train)
+                           transform=transform, train=train, nproc=1)
     else:
         raise NotImplementedError(f"filetype={filetype}")
 
@@ -103,7 +101,7 @@ class BaseReader(IterableDataset):
     dictionaries stored in memory for efficient access."""
     def __init__(self, rspecifier, return_shape=False, return_dict=False,
                  transform: Transformation = None, train=False,
-                 batch_size=1, max_len: int = None, utt2len=None,
+                 batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
                  capacity_mb=4096, nproc: int = None,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
@@ -248,12 +246,12 @@ class BaseReader(IterableDataset):
 
     def get_scp_dict_and_bszs(self):
         """Shuffles the SCP dict and gets the relevant split to load from."""
-        all_dicts_and_bszs = split_scp_dict(
+        batch_size = 1 if self._batch_size is None else self._batch_size
+        scp_dict, bszs = split_scp_dict(
             self._full_scp_dict, n_parts=self._n_parts,
             randomize=self.shuffle, seed=self._fetch_seed,
-            batch_size=self._batch_size, max_len=self._max_len,
-            utt2len=self._utt2len, ensure_equal_parts=self._ensure_equal_parts)
-        scp_dict, bszs = all_dicts_and_bszs[self._i_part]
+            batch_size=batch_size, max_len=self._max_len, utt2len=self._utt2len,
+            ensure_equal_parts=self._ensure_equal_parts)[self._i_part]
         if self._num_batches is None:
             self._num_batches = len(bszs)
         return scp_dict, bszs
@@ -264,11 +262,12 @@ class BaseReader(IterableDataset):
         The thread finishes as soon as it fails to load a file (which happens
         if queue.clear() is called)."""
         def wrapper(d):
-            d, bszs = self.get_scp_dict_and_bszs() if d is None else d
             for path, uttid_locs in d.items():
                 if not self.queue.put(path, uttid_locs):
                     break
 
+        if scp_dict is None:
+            scp_dict, _ = self.get_scp_dict_and_bszs()
         self.files_loaded = self.thread_pool.submit(wrapper, scp_dict)
 
     @staticmethod
@@ -308,6 +307,7 @@ class BaseReader(IterableDataset):
                     self.files_loaded.cancelled()) and self.queue.empty():
                 self.load_files(scp_dict)
 
+            i = 0
             for expected_path in scp_dict:
                 path, file_dict = self.queue.get()
                 if path != expected_path:
@@ -322,8 +322,15 @@ class BaseReader(IterableDataset):
                     self.load_files()
 
                 output_iterator = self.output_iterator(file_dict)
-                for bsz in bszs:
-                    yield [next(output_iterator) for _ in range(bsz)]
+                if self._batch_size is None:
+                    yield from output_iterator
+                else:
+                    try:
+                        for bsz in bszs[i:]:
+                            yield [next(output_iterator) for _ in range(bsz)]
+                            i += 1
+                    except StopIteration:
+                        pass
 
         else:  # self.ark_or_scp == "ark"
             if self.filepath == "-":  # Required h5py>=2.9 for hdf5
@@ -333,16 +340,19 @@ class BaseReader(IterableDataset):
             file_dict = self.get_file_dict(filepath)
             output_iterator = self.output_iterator(file_dict)
 
-            done = False
-            while not done:
-                batch = []
-                try:
-                    while len(batch) < self._batch_size:
-                        batch.append(next(output_iterator))
-                    yield batch
-                except StopIteration:
-                    done = True
-                    yield batch
+            if self._batch_size is None:
+                yield from output_iterator
+            else:
+                done = False
+                while not done:
+                    batch = []
+                    try:
+                        while len(batch) < self._batch_size:
+                            batch.append(next(output_iterator))
+                        yield batch
+                    except StopIteration:
+                        done = True
+                        yield batch
 
 
 class KaldiReader(BaseReader):
