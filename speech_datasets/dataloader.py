@@ -11,6 +11,7 @@ import os
 import shutil
 from tempfile import NamedTemporaryFile
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from pathlib import Path
 
 import torch
 import torch.utils.data
@@ -236,7 +237,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         if spmodel is not None:
             if token_list is None:
                 token_list = os.path.join(os.path.dirname(spmodel), "tokens.txt")
-            if not os.path.isfile(token_list):
+            elif isinstance(token_list, list):
+                if not all(isinstance(item, str) for item in token_list):
+                    token_list = None
+            if (isinstance(token_list, str) or isinstance(token_list, Path)) and not os.path.isfile(token_list):
                 token_list = None
             self.tokenizer = build_tokenizer("bpe", spmodel, token_list)
 
