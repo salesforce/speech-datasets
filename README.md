@@ -147,7 +147,8 @@ make clean all CONDA=<espnet_root>/tools/venv/bin/conda VENV_NAME=base TORCH_VER
 Make sure to accept the prompts which warn you that the environment `base` already exists, and that this environment
 may contain a different version of Python from what the `Makefile` requests. Specifying `TORCH_VERSION=''` prevents the
 `Makefile` from installing a new version of PyTorch, which may be useful. However, `torch>=1.2.0` is still required,
-so we suggest just using the default setting of `1.4.0` (the latest release still compatible with ESPNet).
+so we suggest just using the default setting of `1.4.0` (the latest release still compatible with older versions of
+ESPNet).
 
 
 ##### Notes

@@ -307,7 +307,7 @@ class BaseReader(IterableDataset):
                     self.files_loaded.cancelled()) and self.queue.empty():
                 self.load_files(scp_dict)
 
-            i = 0
+            i_batch, batch = 0, []
             for expected_path in scp_dict:
                 path, file_dict = self.queue.get()
                 if path != expected_path:
@@ -326,11 +326,13 @@ class BaseReader(IterableDataset):
                     yield from output_iterator
                 else:
                     try:
-                        for bsz in bszs[i:]:
-                            yield [next(output_iterator) for _ in range(bsz)]
-                            i += 1
+                        for bsz in bszs[i_batch:]:
+                            while len(batch) < bsz:
+                                batch.append(next(output_iterator))
+                            yield batch
+                            i_batch, batch = i_batch + 1, []
                     except StopIteration:
-                        pass
+                        continue
 
         else:  # self.ark_or_scp == "ark"
             if self.filepath == "-":  # Required h5py>=2.9 for hdf5
