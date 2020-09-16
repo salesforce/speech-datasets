@@ -71,13 +71,13 @@ def file_reader_helper(rspecifier: str, filetype: str, train=True,
     """
     if filetype == "mat":
         return KaldiReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, nproc=1)
+                           transform=transform, train=train, n_transform_proc=1)
     elif filetype == "hdf5":
         return HDF5Reader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                          transform=transform, train=train, nproc=1)
+                          transform=transform, train=train, n_transform_proc=1)
     elif filetype == "sound":
         return SoundReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, nproc=1)
+                           transform=transform, train=train, n_transform_proc=1)
     else:
         raise NotImplementedError(f"filetype={filetype}")
 
@@ -103,7 +103,7 @@ class BaseReader(IterableDataset):
                  transform: Transformation = None, train=False,
                  batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
-                 capacity_mb=4096, nproc: int = None,
+                 data_cache_mb=4096, n_transform_proc: int = None,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(
@@ -170,17 +170,17 @@ class BaseReader(IterableDataset):
 
         # Set up a process pool to apply the transform if there is one
         if transform.is_null():
-            self.nproc, self.process_pool = None, None
+            self.n_transform_proc, self.process_pool = None, None
         else:
-            self.nproc = nproc
-            if self.nproc is None:
+            self.n_transform_proc = n_transform_proc
+            if self.n_transform_proc is None:
                 ncpu = os.cpu_count() or 1
-                self.nproc = max(1, math.ceil(ncpu / self._n_parts) - 1)
-            self.process_pool = mp.Pool(self.nproc)
+                self.n_transform_proc = max(1, math.ceil(ncpu / self._n_parts) - 1)
+            self.process_pool = mp.Pool(self.n_transform_proc)
 
         # For pre-fetching and caching hdf5 files in memory.
         self.pre_fetch_next_epoch = pre_fetch_next_epoch
-        self.queue = FileQueue(max_size=capacity_mb * (2 ** 20),
+        self.queue = FileQueue(max_size=data_cache_mb * (2 ** 20),
                                read_file=self.get_file_dict,
                                get_file_size=self.file_dict_size)
         self.files_loaded = None
@@ -236,9 +236,13 @@ class BaseReader(IterableDataset):
         self._seed = seed
         if seed != self._fetch_seed and self.shuffle:
             self.close()
+            self._fetch_seed = seed
+            scp_dict, bszs = self.get_scp_dict_and_bszs()
+            self._num_batches = len(bszs)
             if self.pre_fetch_next_epoch:
-                self.load_files()
-        self._fetch_seed = seed
+                self.load_files(scp_dict)
+        else:
+            self._fetch_seed = seed
 
     @property
     def shuffle(self):
@@ -258,9 +262,9 @@ class BaseReader(IterableDataset):
 
     def load_files(self, scp_dict=None):
         """Schedules a background thread to read the relevant file dicts from
-        either the SCP dict given, or the SCP dict from self.get_scp_dict().
+        either the SCP dict given, or the one from self.get_scp_dict_and_bszs().
         The thread finishes as soon as it fails to load a file (which happens
-        if queue.clear() is called)."""
+        if queue.clear() is called) or once it's done loading all files."""
         def wrapper(d):
             for path, uttid_locs in d.items():
                 if not self.queue.put(path, uttid_locs):
@@ -289,7 +293,7 @@ class BaseReader(IterableDataset):
         """Output iterator which applies self.transform to all the signals in
         file_dict, and returns them (in desired format) along w/ their keys."""
         if self.process_pool is not None:
-            c = math.ceil(len(file_dict) / (self.nproc * 4))
+            c = math.ceil(len(file_dict) / (self.n_transform_proc * 4))
             it = self.process_pool.imap(self.transform, file_dict.items(), c)
         else:
             it = file_dict.values()

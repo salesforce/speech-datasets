@@ -292,7 +292,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                 f"scp:{tmpfile.name}", return_dict=True, train=train,
                 shuffle=shuffle, n_parts=num_replicas, i_part=rank,
                 transform=transform, pre_fetch_next_epoch=True,
-                nproc=n_transform_proc, capacity_mb=data_cache_mb,
+                n_transform_proc=n_transform_proc, data_cache_mb=data_cache_mb,
                 batch_size=batch_size, max_len=max_len,
                 utt2len=utt2len, ensure_equal_parts=ensure_equal_parts)
 
@@ -313,6 +313,8 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
 
     def set_epoch(self, epoch):
         self.dataset.seed = epoch
+        self.iter = None
+        self.current_position = -1
 
     def close(self):
         self.dataset.close()
