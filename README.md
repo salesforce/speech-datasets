@@ -330,15 +330,16 @@ is properly randomized:
    corresponding to this particular combination of data splits. For the example above, you can navigate to
    [`COMBINE/asr1`](COMBINE/asr1) and run
    ```shell script
-   ./combine_train_data.sh --stage 2 --stop-stage 4 --speed-perturb-factors "0.9 1.0 1.1" --feats-type fbank \
+   ./combine_train_data.sh --stage 2 --stop-stage 5 --speed-perturb-factors "0.9 1.0 1.1" --feats-type fbank \
        wsj/train_si284 librispeech/train-other-500 commonvoice/valid_train_en
    ```
    before using the Python code above.
 
    Note that `combine_train_data.sh` assumes that Stage 1 (dataset-specific preparation) has already been run for all
-   the relevant datasets, and it does not support stages 5-7 (combining CMVN statistics & computing a token inventory),
-   as these are handled by different scripts (described below). Mis-specifying these options will result in an error
-   message.
+   the relevant datasets, and it does not support stages 6-7 (computing a token inventory), as these are handled by
+   [`multi_tokenize.sh`](COMBINE/asr1/multi_tokenize.sh) (described below). Mis-specifying these options will result
+   in an error message. Additionally, if you have already computed CMVN statistics for all the datasets you wish to
+   combine, you may simply invoke [`combine_cmvn_stats.sh`](COMBINE/asr1/combine_cmvn_stats.sh) (described below).
 
 2. Train your model using `DistributedDataParallel`. Each concurrent process will be working on a different archive
    file at any given time. Thus, while each archive file only contains data from a single split, the fact that there
@@ -346,9 +347,10 @@ is properly randomized:
    multiple different data splits.
 
 ### Combining CMVN Statistics
-Should you additionally wish to combine the CMVN statistics from multiple datasets, you can use the scripts
-[`COMBINE/asr1/multi_cmvn.sh`](COMBINE/asr1/combine_cmvn_stats.sh) or
-[`COMBINE/tts1/multi_cmvn.sh`](COMBINE/tts1/multi_cmvn.sh). Simply navigate to the relevant directory and invoke
+Should you additionally wish to combine pre-computed CMVN statistics from multiple datasets, you can use the scripts
+[`COMBINE/asr1/combine_cmvn_stats.sh`](COMBINE/asr1/combine_cmvn_stats.sh) or
+[`COMBINE/tts1/combien_cmvn_stats.sh`](COMBINE/tts1/combine_cmvn_stats.sh).
+Simply navigate to the relevant directory and invoke
 ```shell script
 ./combine_cmvn_stats.sh --cmvn_type <cmvn_type> --feats_type <feats_type> <dataset1>/<split1a> <dataset2>/<split2a> ...
 ```

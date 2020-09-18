@@ -16,7 +16,7 @@ fi
 
 kwargs=()
 stage=2
-stop_stage=4
+stop_stage=5
 while true; do
     case "$1" in
         --stage)
@@ -30,8 +30,8 @@ while true; do
             shift 2
             ;;
         --stop-stage|--stop_stage)
-            if [ "$2" -gt 4 ]; then
-                log "Specify --stop-stage 4 or lower (got --stop-stage $2)."
+            if [ "$2" -gt 5 ]; then
+                log "Specify --stop-stage 5 or lower (got --stop-stage $2)."
                 log "Use combine_cmvn_stats.sh to combine CMVN statistics from multiple datasets (stage 5)."
                 log "Use multi_tokenize.sh to obtain token inventories from multiple datasets (stages 6-7)."
                 exit 2
