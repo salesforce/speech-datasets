@@ -216,7 +216,10 @@ utterances (where possible), and at most 5 hours of audio.
 statistics will be dumped to `<dataset>/dump/<feats_type>/<train_split>/<cmvn_type>_cmvn.ark` for each split
 `<train_split>` of `<dataset>`. For global CMVN, CMVN statistics are also aggregated for all *training* splits
 `<dataset>/dump/<feats_type>/global_cmvn.ark`. For utterance and speaker CMVN, CMVN statistics are aggregated for
-all splits in `<dataset>/dump/<feats_type>/<cmvn_type>_cmvn.ark`.
+all splits in `<dataset>/dump/<feats_type>/<cmvn_type>_cmvn.ark`. **NOTE: STAGE 5 DOES NOT APPLY CMVN TO YOUR DATA! 
+IT ONLY COMPUTES THE STATISTICS. In order to apply CMVN, please supply a transformation of type `cmvn` to the data
+loader (in Python) and specify the appropriate CMVN statistics file to do this.
+See [here](speech_datasets/transform/README.md) for more details.**
 
 6. Concatenate all text files (for language model training) into a single file.
 

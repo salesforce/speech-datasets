@@ -3,6 +3,7 @@ import atexit
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 import io
+import logging
 import math
 import multiprocessing as mp
 import os
@@ -25,6 +26,7 @@ from speech_datasets.utils.types import CMVNStats
 # unique global names to the transforms that co-existing HDF5Readers will give
 # to the multiprocessing pool (we need to do this
 _reader_registry = []
+logger = logging.getLogger(__name__)
 
 
 def _weakref_close(reader_ref):
@@ -313,6 +315,7 @@ class BaseReader(IterableDataset):
 
             i_batch, batch = 0, []
             for expected_path in scp_dict:
+                logger.debug(f"TRY GET {os.path.basename(expected_path)}")
                 path, file_dict = self.queue.get()
                 if path != expected_path:
                     raise RuntimeError(
