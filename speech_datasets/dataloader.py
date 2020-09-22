@@ -165,6 +165,7 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
 class SpeechDataLoader(torch.utils.data.DataLoader):
     def __init__(self, datasets: Union[str, List[str]],
                  task="asr", precomputed_feats_type="raw",
+                 text_filename="text",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
@@ -256,7 +257,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             scp_dir = os.path.dirname(scp)
             if reader_class is not HDF5Reader:
                 self.aux_utt_info.update(consolidate_utt_info(
-                    text=os.path.join(scp_dir, "text"),
+                    text=os.path.join(scp_dir, text_filename),
                     utt2spk=os.path.join(scp_dir, "utt2spk"),
                     utt2num_frames=os.path.join(scp_dir, "utt2num_frames")))
             else:
