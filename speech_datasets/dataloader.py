@@ -4,7 +4,7 @@
 # Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 """pytorch dataset and dataloader implementation for chainer training."""
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import itertools
 import logging
 import os
@@ -37,7 +37,7 @@ def get_valid_datasets(task: str) -> Set[str]:
 
 
 def validate_datasets(datasets: List[str], task: str, feats_type: str) \
-        -> Dict[str, Set[str]]:
+        -> Dict[str, List[str]]:
     """Makes sure that the dataset names given (in form '<dataset>/<sub_dataset>')
     are valid, and that they have been prepared appropriately. Returns a
     Dict[str, Set[str]] dataset2subs, where dataset2subs[dataset] contains all
@@ -81,6 +81,10 @@ def validate_datasets(datasets: List[str], task: str, feats_type: str) \
                 f"The following are invalid splits of dataset {dataset}: "
                 f"{invalid_subs}\nValid splits are: {valid_subs}")
 
+    # Convert dataset2subs to a SORTED OrderedDict[str, List[str]]
+    # This is to ensure reproducibility across different processes
+    dataset2subs = OrderedDict((k, sorted(dataset2subs[k]))
+                               for k in sorted(dataset2subs.keys()))
     return dataset2subs
 
 
@@ -155,13 +159,13 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str,
                              f"prepared for dataset {name}.")
                 raise
 
-    if not all(f == fmt for f in fmts):
+    if not all(f == fmts[0] for f in fmts):
         err = "\n".join(f"{dset}: {fmt}" for dset, fmt in zip(dsets, fmts))
         raise RuntimeError(
             "Expected all datasets to be dumped to the same archive "
             "format, but got:\n" + err)
 
-    return scp_files, fmt2reader[fmt]
+    return scp_files, fmt2reader[fmts[0]]
 
 
 class SpeechDataLoader(torch.utils.data.DataLoader):
