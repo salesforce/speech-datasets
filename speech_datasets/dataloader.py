@@ -116,7 +116,8 @@ def get_combo_scp(datasets: List[str], task: str, feats_type: str) -> \
         return None, None
 
 
-def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
+def get_dataset_scps(datasets: List[str], task: str, feats_type: str,
+                     check_combine=True) -> \
         Tuple[List[str], type]:
     """Given a list of <dataset>/<split> specifiers, obtain the SCP file(s) that
     index all the datasets (and splits) that we care about."""
@@ -125,9 +126,10 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
     dsets = []
     fmt2reader = {"hdf5": HDF5Reader, "mat": KaldiReader}
 
-    scp, fmt = get_combo_scp(datasets, task, feats_type)
-    if scp is not None:
-        return [scp], fmt2reader[fmt]
+    if check_combine:
+        scp, fmt = get_combo_scp(datasets, task, feats_type)
+        if scp is not None:
+            return [scp], fmt2reader[fmt]
 
     dataset2subs = validate_datasets(datasets, task, feats_type)
     for dataset, subs in dataset2subs.items():
@@ -139,9 +141,9 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
             try:
                 with open(os.path.join(dirname, "archive_format")) as f:
                     fmt = f.readline().rstrip()
-                assert fmt in ["hdf5", "mat"], \
-                    f"Dataset {name} must be dumped to 'hdf5' or 'mat' " \
-                    f"archives, but got {fmt} instead."
+                assert fmt in fmt2reader.keys(), \
+                    f"Dataset {name} must be dumped to one of " \
+                    f"{set(fmt2reader.keys())} archives, but got {fmt} instead."
                 fmts.append(fmt)
 
                 with open(os.path.join(dirname, "data_format")) as f:
@@ -165,6 +167,7 @@ def get_dataset_scps(datasets: List[str], task: str, feats_type: str) -> \
 class SpeechDataLoader(torch.utils.data.DataLoader):
     def __init__(self, datasets: Union[str, List[str]],
                  task="asr", precomputed_feats_type="raw",
+                 text_filename="text",
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
@@ -178,6 +181,9 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         :param precomputed_feats_type: "raw", "fbank", or "fbank_pitch". Tells
             the data loader where to look for archive files, and what sort of
             pre-computed features have been dumped to those archives.
+        :param text_filename: name of the file associating each utterance to its
+            transcription. Can be useful to override if you want to transcribe
+            (for example) phones instead of characters.
         :param transform_conf: either the filename of a `yaml` file specifying a
             transformation, or a `List[Dict[str, Any]]` specifying that
             transformation. `None` means no data transformation.
@@ -249,18 +255,22 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         assert len(datasets) > 0, "Cannot load 0 datasets"
         scp_files, reader_class = get_dataset_scps(datasets, task, precomputed_feats_type)
 
-        # HDF5Reader gets speaker & text info, but we need to furnish these
-        # manually for the other readers
-        self.aux_utt_info = {}
-        for scp in scp_files:
-            scp_dir = os.path.dirname(scp)
-            if reader_class is not HDF5Reader:
+        try:
+            self.aux_utt_info = {}
+            for scp in scp_files:
+                scp_dir = os.path.dirname(scp)
                 self.aux_utt_info.update(consolidate_utt_info(
-                    text=os.path.join(scp_dir, "text"),
+                    text=os.path.join(scp_dir, text_filename),
                     utt2spk=os.path.join(scp_dir, "utt2spk"),
                     utt2num_frames=os.path.join(scp_dir, "utt2num_frames")))
-            else:
+        except FileNotFoundError:
+            self.aux_utt_info = {}
+            scps, _ = get_dataset_scps(datasets, task, precomputed_feats_type)
+            for scp in scps:
+                scp_dir = os.path.dirname(scp)
                 self.aux_utt_info.update(consolidate_utt_info(
+                    text=os.path.join(scp_dir, text_filename),
+                    utt2spk=os.path.join(scp_dir, "utt2spk"),
                     utt2num_frames=os.path.join(scp_dir, "utt2num_frames")))
 
         # Initialize the transform & determine how it re-samples inputs
