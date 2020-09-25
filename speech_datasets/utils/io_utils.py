@@ -98,10 +98,9 @@ class FileQueue(object):
                 was_empty = self.empty()
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
-
-        if was_empty:
-            with self._get_lock:
-                self._get_lock.notify()
+                if was_empty:
+                    with self._get_lock:
+                        self._get_lock.notify()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
@@ -113,10 +112,9 @@ class FileQueue(object):
                 was_full = self.full()
                 path, file = self._queue.popleft()
                 self._cur_size -= self.get_file_size(file)
-
-        if was_full:
-            with self._put_lock:
-                self._put_lock.notify()
+                if was_full:
+                    with self._put_lock:
+                        self._put_lock.notify()
 
         logger.debug(f"GET {os.path.basename(path)}")
         return path, file
