@@ -3,7 +3,7 @@ from distutils.util import strtobool as dist_strtobool
 import logging
 import os
 import sys
-from threading import Condition, Lock
+from threading import Condition, RLock
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -49,25 +49,22 @@ class FileQueue(object):
         self.n = 0
         self._closed = False
         self._queue = deque()
-        self._lock = Lock()
+        self._lock = RLock()
 
         # first process to try to add/remove to/from the queue gets to do so
-        self._put_lock = Condition(Lock())
-        self._get_lock = Condition(Lock())
+        self._put_lock = Condition()
+        self._get_lock = Condition()
 
-    def _full(self):
-        return self._cur_size >= self._max_size > 0
-
-    def _empty(self):
-        return len(self._queue) == 0
-
-    def full(self):
+    def full(self, debug=False):
         with self._lock:
-            return self._full()
+            is_full = self._cur_size >= self._max_size > 0
+            if is_full and debug:
+                logger.debug("QUEUE FULL")
+            return is_full
 
     def empty(self):
         with self._lock:
-            return self._empty()
+            return len(self._queue) == 0
 
     def close(self):
         """Cancels all pending put operations."""
@@ -80,26 +77,25 @@ class FileQueue(object):
             self._closed = False
 
     def clear(self):
-        # Close the queue and then clear it
-        self.close()
+        """Close the queue and then clear it."""
         with self._put_lock:
-            with self._lock:
-                self._queue.clear()
-                self._cur_size = 0
+            with self._get_lock:
+                with self._lock:
+                    self.close()
+                    self._queue.clear()
+                    self._cur_size = 0
 
     def put(self, path, *args, **kwargs):
         """Returns whether we succeeded in adding the item to the queue."""
         with self._put_lock:
             logger.debug(f"TRY PUT {os.path.basename(path)}")
-            while self.full() and not self._closed:
-                logger.debug("QUEUE FULL")
-                self._put_lock.wait()
+            self._put_lock.wait_for(lambda: self._closed or not self.full(True))
             if self._closed:
                 return False
 
             file = self.read_file(path, *args, **kwargs)
             with self._lock:
-                was_empty = self._empty()
+                was_empty = self.empty()
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
 
@@ -112,10 +108,9 @@ class FileQueue(object):
 
     def get(self):
         with self._get_lock:
-            while self.empty():
-                self._get_lock.wait()
+            self._get_lock.wait_for(lambda: not self.empty())
             with self._lock:
-                was_full = self._full()
+                was_full = self.full()
                 path, file = self._queue.popleft()
                 self._cur_size -= self.get_file_size(file)
 
