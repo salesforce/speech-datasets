@@ -53,6 +53,7 @@ class FileQueue(object):
 
         # first process to try to add/remove to/from the queue gets to do so
         self._put_lock = Condition()
+        self._reading_file = False
         self._get_lock = Condition()
 
     def full(self, debug=False):
@@ -84,6 +85,7 @@ class FileQueue(object):
                     self.close()
                     self._queue.clear()
                     self._cur_size = 0
+                self._get_lock.notify_all()
 
     def put(self, path, *args, **kwargs):
         """Returns whether we succeeded in adding the item to the queue."""
@@ -93,26 +95,27 @@ class FileQueue(object):
             if self._closed:
                 return False
 
+            self._reading_file = True
             file = self.read_file(path, *args, **kwargs)
             with self._lock:
-                was_empty = self.empty()
+                self._reading_file = False
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
-                if was_empty:
-                    with self._get_lock:
-                        self._get_lock.notify()
+                with self._get_lock:
+                    self._get_lock.notify()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
 
     def get(self):
         with self._get_lock:
-            self._get_lock.wait_for(lambda: not self.empty())
+            self._get_lock.wait_for(lambda: self._closed or not self.empty())
             with self._lock:
-                was_full = self.full()
+                if self.empty():
+                    return None, None
                 path, file = self._queue.popleft()
                 self._cur_size -= self.get_file_size(file)
-                if was_full:
+                if not self._reading_file:
                     with self._put_lock:
                         self._put_lock.notify()
 
