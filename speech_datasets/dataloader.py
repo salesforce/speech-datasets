@@ -336,6 +336,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
     def __len__(self):
         return len(self.dataset)
 
+    @property
+    def num_utts(self):
+        return self.dataset.num_utts
+
     def collate_fn(self, items):
         batch = []
         items = itertools.chain.from_iterable(items)
