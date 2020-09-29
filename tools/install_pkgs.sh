@@ -12,10 +12,7 @@ apt-get autoremove -y
 
 # The actual apt installs we need
 apt-get install -y apt-utils
-apt-get install -y python-pip virtualenv  # This is pip for python2
-apt-get install -y emacs less
 apt-get install -y gawk
-apt-get install -y man
 apt-get install -y build-essential libfontconfig1 automake
 apt-get install -y sox flac ffmpeg libasound2-dev libsndfile1-dev
 apt-get install -y libfftw3-dev libopenblas-dev libgflags-dev libgoogle-glog-dev
