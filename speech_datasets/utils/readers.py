@@ -320,12 +320,7 @@ class BaseReader(IterableDataset):
 
             i_batch, batch = 0, []
             for expected_path in scp_dict:
-                logger.debug(f"TRY GET {os.path.basename(expected_path)}")
-                path, file_dict = self.queue.get()
-                if path != expected_path:
-                    raise RuntimeError(
-                        f"A race condition caused us to fetch the wrong file. "
-                        f"Expected {expected_path}, but got {path} instead.")
+                path, file_dict = self.queue.get(expected_path)
 
                 # Pre-fetch the next epoch as soon as we're done with this one
                 if self.pre_fetch_next_epoch and self._fetch_seed == self._seed \

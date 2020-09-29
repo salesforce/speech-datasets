@@ -53,19 +53,25 @@ class FileQueue(object):
 
         # first process to try to add/remove to/from the queue gets to do so
         self._put_lock = Condition()
-        self._reading_file = False
         self._get_lock = Condition()
+        self._put_lock_waiting = False
+        self._get_lock_waiting = False
 
-    def full(self, debug=False):
+    def full(self, *, update_put_lock=False, debug_msg=False):
         with self._lock:
             is_full = self._cur_size >= self._max_size > 0
-            if is_full and debug:
+            if update_put_lock:
+                self._put_lock_waiting = is_full
+            if is_full and debug_msg:
                 logger.debug("QUEUE FULL")
             return is_full
 
-    def empty(self):
+    def empty(self, *, update_get_lock=False):
         with self._lock:
-            return len(self._queue) == 0
+            is_empty = len(self._queue) == 0
+            if update_get_lock:
+                self._get_lock_waiting = is_empty
+            return is_empty
 
     def close(self):
         """Cancels all pending put operations."""
@@ -91,35 +97,48 @@ class FileQueue(object):
         """Returns whether we succeeded in adding the item to the queue."""
         with self._put_lock:
             logger.debug(f"TRY PUT {os.path.basename(path)}")
-            self._put_lock.wait_for(lambda: self._closed or not self.full(True))
+            self._put_lock.wait_for(lambda: self._closed or not self.full(update_put_lock=True, debug_msg=True))
+
             if self._closed:
                 return False
-
-            self._reading_file = True
             file = self.read_file(path, *args, **kwargs)
+
             with self._lock:
-                self._reading_file = False
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
-                with self._get_lock:
-                    self._get_lock.notify()
+
+                if self._get_lock_waiting:
+                    with self._get_lock:
+                        self._get_lock.notify()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
 
-    def get(self):
+    def get(self, expected_path=None):
         with self._get_lock:
-            self._get_lock.wait_for(lambda: self._closed or not self.empty())
+            if expected_path is not None:
+                logger.debug(f"TRY GET {os.path.basename(expected_path)}")
+            self._get_lock.wait_for(lambda: self._closed or not self.empty(update_get_lock=True))
+
             with self._lock:
                 if self.empty():
-                    return None, None
-                path, file = self._queue.popleft()
-                self._cur_size -= self.get_file_size(file)
-                if not self._reading_file:
+                    path, file = None, None
+                else:
+                    path, file = self._queue.popleft()
+                    self._cur_size -= self.get_file_size(file)
+
+                if self._put_lock_waiting:
                     with self._put_lock:
                         self._put_lock.notify()
 
-        logger.debug(f"GET {os.path.basename(path)}")
+        if path is not None:
+            if expected_path is not None and path != expected_path:
+                raise RuntimeError(
+                    f"A race condition caused us to fetch the wrong file. "
+                    f"Expected {expected_path}, but got {path} instead.")
+            logger.debug(f"GET {os.path.basename(path)}")
+        else:
+            logger.debug(f"QUEUE EMPTY")
         return path, file
 
 
