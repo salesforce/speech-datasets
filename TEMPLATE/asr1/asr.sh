@@ -53,6 +53,7 @@ archive_format=     # Audio archive format
 fs=16000            # Sampling rate (only in feats_type = raw).
 cmvn_type=global    # Type of CMVN statistics to compute (global or speaker or utterance) (defaut=global)
                     # (only in feats_type=fbank or feats_type=fbank_pitch)
+remove_short_from_test=false  # whether to remove short utterances from test/dev sets (stage 4)
 remove_empty_transcripts=true # whether to remove utterances with no transcript (stage 4)
 
 # Tokenization related
@@ -93,6 +94,7 @@ Options:
     --fs              # Sampling rate (only in feats_type=raw, default="${fs}").
     --cmvn_type       # Type of CMVN statistics to compute (global or speaker or utterance, default=${cmvn_type})
                       # (only used when feats_type=fbank or feats_type=fbank_pitch)
+    --remove_short_from_test   # whether to remove short utterances from test/dev sets (default=${remove_short_from_test})
     --remove_empty_transcripts # whether to remove utterances with no transcript (default=${remove_empty_transcripts})
 
     # Tokenization related
@@ -337,7 +339,15 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     # wav.scp/feats.scp index file. The files will not be removed, but the data
     # simply won't be loaded at runtime if you don't want it.
     log "Stage 4: Remove short data: ${data_feats}/orig -> ${data_feats}/no_short"
-    for dset in ${train_sets} ${dev_eval_sets}; do
+    if [ $remove_short_from_test = true ]; then
+        dsets_to_shorten="${train_sets} ${dev_eval_sets}"
+    else
+        dsets_to_shorten=${train_sets}
+        for dset in ${dev_eval_sets}; do
+            ln -sf "orig/${dset}" "${data_feats}"
+        done
+    fi
+    for dset in ${dsets_to_shorten}; do
 
         # Get various metadata about the dataset
         _feats_type="$(<${data_feats}/orig/${dset}/feats_type)"
@@ -373,11 +383,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 
         # fix_data_dir.sh leaves only utts which exist in all files
         utils/fix_data_dir.sh "${data_feats}/no_short/${dset}"
-    done
-    for dirname in "${data_feats}"/no_short/*; do
-        if [ -d "${dirname}" ]; then
-            ln -sf "no_short/$(basename "${dirname}")" "${data_feats}"
-        fi
+        ln -sf "no_short/${dset}" "${data_feats}"
     done
 fi
 

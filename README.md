@@ -208,7 +208,8 @@ use `--feats-type raw`.
 utterances (where possible), and at most 5 hours of audio.
 
 4. Remove any utterances that are shorter than 100ms. If `--remove-empty-transcripts true` is specified
-(default `true`), all utterances with no transcript are also removed.
+(default `true`), all utterances with no transcript are also removed. If `--remove-short-from-test` is specified
+(default `false`), short utterances are removed from the test/dev sets as well as the training sets.
 
 5. Compute CMVN statistics for all splits if features were pre-computed in stage 3 (`--feats-type fbank` or
 `--feats-type fbank_pitch`). Specify CMVN type as a command line option (`--cmvn-type global` (default),
