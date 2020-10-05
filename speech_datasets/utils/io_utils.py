@@ -130,6 +130,15 @@ class FileQueue(object):
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
 
+        # If get() is not waiting on the _not_empty condition variable, we don't
+        # need to block. If we have not yet started waiting on _not_empty, the
+        # current get() operation will succeed because this put() has made the
+        # queue non-empty. If we have already waited on _not_empty, the current
+        # get() operation is only holding on to the _not_empty lock to make
+        # the operation atomic.
+        # Note that we block while in the middle of a wait_for() to prevent
+        # possible race conditions where the empty() predicate is evaluated
+        # before this method is able to update the queue.
         if self._not_empty.acquire(blocking=self._not_empty_waiting):
             self._not_empty.notify()
             self._not_empty.release()
@@ -152,6 +161,15 @@ class FileQueue(object):
                     path, file = self._queue.popleft()
                     self._cur_size -= self.get_file_size(file)
 
+        # If put() is not waiting on the _not_full condition variable, we don't
+        # need to block. If we have not yet started waiting on _not_full, the
+        # current put() operation will succeed because this get() has made the
+        # queue non-full. If we have already waited on _not_full, the current
+        # put() operation is only holding on to the _not_full lock while doing
+        # a file I/O operation (to make put's atomic).
+        # Note that we block while in the middle of a wait_for() to prevent
+        # possible race conditions where the full() predicate is evaluated
+        # before this method is able to update the queue.
         if self._not_full.acquire(blocking=self._not_full_waiting):
             self._not_full.notify()
             self._not_full.release()
