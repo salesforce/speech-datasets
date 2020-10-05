@@ -51,16 +51,13 @@ class FileQueue(object):
         self._queue = deque()
         self._mutex = RLock()
 
-        # first process to try to add/remove to/from the queue gets to do so
+        # first process to try to add to/remove from the queue gets to do so
         self._not_full = Condition()
-        self._full_waiting = False
-        self._not_empty = Condition(self._mutex)
+        self._not_empty = Condition()
 
-    def full(self, *, update_state=False, debug_msg=False):
+    def full(self, *, debug_msg=False):
         with self._mutex:
             is_full = self._cur_size >= self._max_size > 0
-            if update_state:
-                self._full_waiting = is_full
             if is_full and debug_msg:
                 logger.debug("QUEUE FULL")
             return is_full
@@ -72,9 +69,9 @@ class FileQueue(object):
 
     def close(self):
         """Cancels all pending put operations."""
-        self._closed = True
         with self._not_full:
             with self._not_empty:
+                self._closed = True
                 self._not_full.notify_all()
                 self._not_empty.notify_all()
 
@@ -95,7 +92,7 @@ class FileQueue(object):
         """Returns whether we succeeded in adding the item to the queue."""
         with self._not_full:
             logger.debug(f"TRY PUT {os.path.basename(path)}")
-            self._not_full.wait_for(lambda: self._closed or not self.full(update_state=True, debug_msg=True))
+            self._not_full.wait_for(lambda: self._closed or not self.full(debug_msg=True))
 
             if self._closed:
                 return False
@@ -104,7 +101,10 @@ class FileQueue(object):
             with self._mutex:
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
+
+            if self._not_empty.acquire(blocking=False):
                 self._not_empty.notify()
+                self._not_empty.release()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
@@ -122,9 +122,9 @@ class FileQueue(object):
                     path, file = self._queue.popleft()
                     self._cur_size -= self.get_file_size(file)
 
-                if self._full_waiting:
-                    with self._not_full:
-                        self._not_full.notify()
+            if self._not_full.acquire(blocking=False):
+                self._not_full.notify()
+                self._not_full.release()
 
         if path is not None:
             if expected_path is not None and path != expected_path:
