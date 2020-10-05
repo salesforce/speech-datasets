@@ -38,7 +38,7 @@ tdir=$sdir/data/references/eval03/english/cts
 sdir=$sdir/data/audio/eval03/english/cts
 
 find $sdir -iname '*.sph' | sort > $dir/sph.flist
-sed -E 's/.*\/(sw|fsh)_(.*)\.sph/{rt03}\2/' $dir/sph.flist | paste - $dir/sph.flist > $dir/sph.scp
+sed -e 's?.*/?{rt03}?' -e 's?.sph??' $dir/sph.flist | paste - $dir/sph.flist > $dir/sph.scp
 
 sph2pipe=$MAIN_ROOT/tools/sph2pipe_v2.5/sph2pipe
 [ ! -x $sph2pipe ] \
@@ -61,7 +61,7 @@ awk -v sph2pipe=$sph2pipe '{
 #grep -v ';;' $pem \
 cat $tdir/*.stm | grep -v ';;' | grep -v inter_segment_gap \
   | awk '{
-           spk=$1"-"(($2==1)?"A":"B"); gsub("^(sw|fsh)_","{rt03}",spk);
+           spk="{rt03}"$1"-"(($2==1)?"A":"B");
            utt=sprintf("%s_%06d-%06d",spk,$4*100,$5*100);
            print utt,spk,$4,$5;}' \
   | sort -u > $dir/segments
@@ -71,7 +71,7 @@ cat $tdir/*.stm | grep -v ';;' | grep -v inter_segment_gap \
 #grep -v ';;' $tdir/reference/hub5e00.english.000405.stm \
 cat $tdir/*.stm | grep -v ';;' | grep -v inter_segment_gap \
   | awk '{
-           spk=$1"-"(($2==1)?"A":"B"); gsub("^(sw|fsh)_","{rt03}",spk);
+           spk="{rt03}"$1"-"(($2==1)?"A":"B");
            utt=sprintf("%s_%06d-%06d",spk,$4*100,$5*100);
            printf utt; for(n=7;n<=NF;n++) printf(" %s", $n); print ""; }' \
   | sort > $dir/text.all
@@ -82,8 +82,8 @@ cat $tdir/*.stm | \
   sed -e 's:((:(:' -e 's:<B_ASIDE>::g' -e 's:<E_ASIDE>::g' | \
   grep -v inter_segment_gap | \
   awk '{
-           spk=$1" "(($2==1)?"A":"B"); gsub("^(sw|fsh)_","{rt03}",spk);
-           after_spk=$3; gsub("^(sw|fsh)_","{rt03}",after_spk);
+           spk="{rt03}"$1" "(($2==1)?"A":"B");
+           after_spk="{rt03}"$3;
            if ($1==";;") printf("%s %s %s",$1,$2,$3); else printf("%s %s",spk,after_spk);
            for(n=4;n<=NF;n++) printf(" %s", $n); print ""; }' \
   > $dir/stm

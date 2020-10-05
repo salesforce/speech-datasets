@@ -46,8 +46,7 @@ dir=data/local/eval2000
 mkdir -p $dir
 
 find $sdir/english -iname '*.sph' | sort > $dir/sph.flist
-sed -e 's?.*/?{eval2000}?' -e 's?.sph??' $dir/sph.flist | paste - $dir/sph.flist \
-  > $dir/sph.scp
+sed -e 's?.*/?{eval2000}?' -e 's?.sph??' $dir/sph.flist | paste - $dir/sph.flist > $dir/sph.scp
 
 sph2pipe=$MAIN_ROOT/tools/sph2pipe_v2.5/sph2pipe
 [ ! -x $sph2pipe ] \
