@@ -130,9 +130,9 @@ class FileQueue(object):
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
 
-            if self._not_empty.acquire(blocking=self._not_empty_waiting):
-                self._not_empty.notify()
-                self._not_empty.release()
+        if self._not_empty.acquire(blocking=self._not_empty_waiting):
+            self._not_empty.notify()
+            self._not_empty.release()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
@@ -152,9 +152,9 @@ class FileQueue(object):
                     path, file = self._queue.popleft()
                     self._cur_size -= self.get_file_size(file)
 
-            if self._not_full.acquire(blocking=self._not_full_waiting):
-                self._not_full.notify()
-                self._not_full.release()
+        if self._not_full.acquire(blocking=self._not_full_waiting):
+            self._not_full.notify()
+            self._not_full.release()
 
         if path is not None:
             if expected_path is not None and path != expected_path:
