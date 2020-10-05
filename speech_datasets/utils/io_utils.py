@@ -49,87 +49,82 @@ class FileQueue(object):
         self.n = 0
         self._closed = False
         self._queue = deque()
-        self._lock = RLock()
+        self._mutex = RLock()
 
         # first process to try to add/remove to/from the queue gets to do so
-        self._put_lock = Condition()
-        self._get_lock = Condition()
-        self._put_lock_waiting = False
-        self._get_lock_waiting = False
+        self._not_full = Condition()
+        self._full_waiting = False
+        self._not_empty = Condition(self._mutex)
 
-    def full(self, *, update_put_lock=False, debug_msg=False):
-        with self._lock:
+    def full(self, *, update_state=False, debug_msg=False):
+        with self._mutex:
             is_full = self._cur_size >= self._max_size > 0
-            if update_put_lock:
-                self._put_lock_waiting = is_full
+            if update_state:
+                self._full_waiting = is_full
             if is_full and debug_msg:
                 logger.debug("QUEUE FULL")
             return is_full
 
-    def empty(self, *, update_get_lock=False):
-        with self._lock:
+    def empty(self):
+        with self._mutex:
             is_empty = len(self._queue) == 0
-            if update_get_lock:
-                self._get_lock_waiting = is_empty
             return is_empty
 
     def close(self):
         """Cancels all pending put operations."""
-        with self._put_lock:
-            self._closed = True
-            self._put_lock.notify_all()
+        self._closed = True
+        with self._not_full:
+            with self._not_empty:
+                self._not_full.notify_all()
+                self._not_empty.notify_all()
 
     def open(self):
-        with self._put_lock:
+        with self._not_full:
             self._closed = False
 
     def clear(self):
         """Close the queue and then clear it."""
-        with self._put_lock:
-            with self._get_lock:
-                with self._lock:
-                    self.close()
+        with self._not_full:
+            with self._not_empty:
+                with self._mutex:
                     self._queue.clear()
                     self._cur_size = 0
-                self._get_lock.notify_all()
+                    self.close()
 
     def put(self, path, *args, **kwargs):
         """Returns whether we succeeded in adding the item to the queue."""
-        with self._put_lock:
+        with self._not_full:
             logger.debug(f"TRY PUT {os.path.basename(path)}")
-            self._put_lock.wait_for(lambda: self._closed or not self.full(update_put_lock=True, debug_msg=True))
+            self._not_full.wait_for(lambda: self._closed or not self.full(update_state=True, debug_msg=True))
 
             if self._closed:
                 return False
             file = self.read_file(path, *args, **kwargs)
 
-            with self._lock:
+            with self._mutex:
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
-
-                if self._get_lock_waiting:
-                    with self._get_lock:
-                        self._get_lock.notify()
+                self._not_empty.notify()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
 
     def get(self, expected_path=None):
-        with self._get_lock:
+        with self._not_empty:
             if expected_path is not None:
                 logger.debug(f"TRY GET {os.path.basename(expected_path)}")
-            self._get_lock.wait_for(lambda: self._closed or not self.empty(update_get_lock=True))
+            self._not_empty.wait_for(lambda: self._closed or not self.empty())
 
-            with self._lock:
+            with self._mutex:
                 if self.empty():
                     path, file = None, None
                 else:
                     path, file = self._queue.popleft()
                     self._cur_size -= self.get_file_size(file)
 
-                if self._put_lock_waiting:
-                    with self._put_lock:
-                        self._put_lock.notify()
+                if self._full_waiting:
+                    with self._not_full:
+                        self._not_full.notify()
 
         if path is not None:
             if expected_path is not None and path != expected_path:

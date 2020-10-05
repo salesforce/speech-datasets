@@ -300,7 +300,8 @@ class BaseReader(IterableDataset):
         """Output iterator which applies self.transform to all the signals in
         file_dict, and returns them (in desired format) along w/ their keys."""
         if self.process_pool is not None:
-            c = math.ceil(len(file_dict) / (self.n_transform_proc * 4))
+            # c is chunk size
+            c = min(50, math.ceil(len(file_dict) / (self.n_transform_proc * 4)))
             it = self.process_pool.imap(self.transform, file_dict.items(), c)
         else:
             it = file_dict.values()
