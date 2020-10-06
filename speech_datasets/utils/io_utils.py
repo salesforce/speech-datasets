@@ -44,34 +44,26 @@ class FileQueue(object):
         self.read_file = read_file if read_file else lambda x: x
         self.get_file_size = get_file_size if get_file_size else lambda x: 1
 
-        # _cur_size and _queue need atomic access
-        self._cur_size = 0
-        self.n = 0
-        self._closed = False
-        self._queue = deque()
+        # cur_size and queue need atomic access via mutex
         self._mutex = RLock()
+        self._cur_size = 0
+        self._queue = deque()
+        self._closed = False
 
         # first process to try to add to/remove from the queue gets to do so
+        # mutex to ensure that one thread doesn't try to notify the other while
+        # the cv.wait_for(...) predicate is being evaluated.
+        self._cv_mutex = RLock()
         self._not_full = Condition()
         self._not_empty = Condition()
 
-        # track whether the respective condition variable is waiting on its
-        # condition. this determines whether an acquisition that should notify
-        # this condition variable, should block or not.
-        self.__not_full_waiting = False
-        self.__not_empty_waiting = False
-
-    def full(self, *, debug_msg=False):
+    def full(self):
         with self._mutex:
-            is_full = self._cur_size >= self._max_size > 0
-            if is_full and debug_msg:
-                logger.debug("QUEUE FULL")
-            return is_full
+            return self._cur_size >= self._max_size > 0
 
     def empty(self):
         with self._mutex:
-            is_empty = len(self._queue) == 0
-            return is_empty
+            return len(self._queue) == 0
 
     def close(self):
         """Cancels all pending put operations."""
@@ -82,6 +74,7 @@ class FileQueue(object):
                 self._not_empty.notify_all()
 
     def open(self):
+        """Re-opens the queue so new put operations can be scheduled."""
         with self._not_full:
             self._closed = False
 
@@ -90,38 +83,24 @@ class FileQueue(object):
         with self._not_full:
             with self._not_empty:
                 with self._mutex:
+                    self.close()
                     self._queue.clear()
                     self._cur_size = 0
-                    self.close()
-
-    @property
-    def _not_full_waiting(self):
-        with self._mutex:
-            return self.__not_full_waiting
-
-    @_not_full_waiting.setter
-    def _not_full_waiting(self, x):
-        with self._mutex:
-            self.__not_full_waiting = x
-
-    @property
-    def _not_empty_waiting(self):
-        with self._mutex:
-            return self.__not_empty_waiting
-
-    @_not_empty_waiting.setter
-    def _not_empty_waiting(self, x):
-        with self._mutex:
-            self.__not_empty_waiting = x
 
     def put(self, path, *args, **kwargs):
-        """Returns whether we succeeded in adding the item to the queue."""
-        with self._not_full:
-            logger.debug(f"TRY PUT {os.path.basename(path)}")
-            self._not_full_waiting = True
-            self._not_full.wait_for(lambda: self._closed or not self.full(debug_msg=True))
-            self._not_full_waiting = False
+        """Attempts to read the file (at `path`) and adds it to the queue.
+        Blocks if the queue is full and returns `False` if the queue is closed.
+        Returns whether we succeeded in adding the item to the queue."""
+        def predicate():
+            with self._cv_mutex:
+                is_full = self.full()
+                if is_full and not self._closed:
+                    logger.debug("QUEUE FULL")
+                return self._closed or not is_full
 
+        logger.debug(f"TRY PUT {os.path.basename(path)}")
+        with self._not_full:
+            self._not_full.wait_for(predicate)
             if self._closed:
                 return False
             file = self.read_file(path, *args, **kwargs)
@@ -130,30 +109,32 @@ class FileQueue(object):
                 self._queue.append((path, file))
                 self._cur_size += self.get_file_size(file)
 
-        # If get() is not waiting on the _not_empty condition variable, we don't
-        # need to block. If we have not yet started waiting on _not_empty, the
-        # current get() operation will succeed because this put() has made the
-        # queue non-empty. If we have already waited on _not_empty, the current
-        # get() operation is only holding on to the _not_empty lock to make
-        # the operation atomic.
-        # Note that we block while in the middle of a wait_for() to prevent
-        # possible race conditions where the empty() predicate is evaluated
-        # before this method is able to update the queue.
-        if self._not_empty.acquire(blocking=self._not_empty_waiting):
-            self._not_empty.notify()
-            self._not_empty.release()
+        # Only try to acquire self._not_empty when get() isn't evaluating its
+        # wait_for predicate (indicating whether the queue is empty). If we
+        # can't acquire self._not_empty, then the queue is either in the middle
+        # of a successful get(), or has just started one that will succeed
+        # because we just ensured the queue is non-empty. If we can acquire it,
+        # notify the appropriate condition variable that the queue is non-empty.
+        with self._cv_mutex:
+            if self._not_empty.acquire(blocking=False):
+                self._not_empty.notify()
+                self._not_empty.release()
 
         logger.debug(f"PUT {os.path.basename(path)}")
         return True
 
     def get(self, expected_path=None):
-        with self._not_empty:
-            if expected_path is not None:
-                logger.debug(f"TRY GET {os.path.basename(expected_path)}")
-            self._not_empty_waiting = True
-            self._not_empty.wait_for(lambda: self._closed or not self.empty())
-            self._not_empty_waiting = False
+        """Returns the file from the top of the queue. Blocks if the queue is
+        empty. If `expected_path` is provided, a `RuntimeError` is raised if
+        the path of the file returned is different from `expected_path`."""
+        def predicate():
+            with self._cv_mutex:
+                return self._closed or not self.empty()
 
+        if expected_path is not None:
+            logger.debug(f"TRY GET {os.path.basename(expected_path)}")
+        with self._not_empty:
+            self._not_empty.wait_for(predicate)
             with self._mutex:
                 if self.empty():
                     path, file = None, None
@@ -161,18 +142,16 @@ class FileQueue(object):
                     path, file = self._queue.popleft()
                     self._cur_size -= self.get_file_size(file)
 
-        # If put() is not waiting on the _not_full condition variable, we don't
-        # need to block. If we have not yet started waiting on _not_full, the
-        # current put() operation will succeed because this get() has made the
-        # queue non-full. If we have already waited on _not_full, the current
-        # put() operation is only holding on to the _not_full lock while doing
-        # a file I/O operation (to make put's atomic).
-        # Note that we block while in the middle of a wait_for() to prevent
-        # possible race conditions where the full() predicate is evaluated
-        # before this method is able to update the queue.
-        if self._not_full.acquire(blocking=self._not_full_waiting):
-            self._not_full.notify()
-            self._not_full.release()
+        # Only try to acquire self._not_full when put() isn't evaluating its
+        # wait_for predicate (indicating whether the queue is full). If we
+        # can't acquire self._not_full, then the queue is either in the middle
+        # of a successful put(), or has just started one that will succeed
+        # because we just ensured the queue is non-full. If we can acquire it,
+        # notify the appropriate condition variable that the queue is non-full.
+        with self._cv_mutex:
+            if self._not_full.acquire(blocking=False):
+                self._not_full.notify()
+                self._not_full.release()
 
         if path is not None:
             if expected_path is not None and path != expected_path:
