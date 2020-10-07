@@ -175,7 +175,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
-                 n_transform_proc=None, data_cache_mb=4096,
+                 num_workers=1, data_cache_mb=4096,
                  spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.
@@ -215,9 +215,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             enabled if you are training with `DistributedDataParallel`, but you
             may wish to disable it if you are evaluating your model and wish to
             have each utterance processed exactly once.
-        :param n_transform_proc: the number of parallel processes to use to
+        :param num_workers: the number of parallel processes to use to
             apply the data transformation (specified by `transform_conf`) to
-            the data being loaded.  Default: `math.ceil(os.n_cpu() / num_replicas) - 1`.
+            the data being loaded. Default is `1`. If `None`, the value used is
+            `math.ceil(os.n_cpu() / num_replicas) - 1`.
         :param data_cache_mb: the number of megabytes the cache (for pre-fetching
             archive files into memory) can contain.
         :param spmodel: the path to a `sentencepiece` BPE model to use to
@@ -306,7 +307,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                 f"scp:{tmpfile.name}", return_dict=True, train=train,
                 shuffle=shuffle, n_parts=num_replicas, i_part=rank,
                 transform=transform, pre_fetch_next_epoch=True,
-                n_transform_proc=n_transform_proc, data_cache_mb=data_cache_mb,
+                num_workers=num_workers, data_cache_mb=data_cache_mb,
                 batch_size=batch_size, max_len=max_len,
                 utt2len=utt2len, ensure_equal_parts=ensure_equal_parts)
 

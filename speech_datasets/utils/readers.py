@@ -73,13 +73,13 @@ def file_reader_helper(rspecifier: str, filetype: str, train=True,
     """
     if filetype == "mat":
         return KaldiReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, n_transform_proc=1)
+                           transform=transform, train=train, num_workers=1)
     elif filetype == "hdf5":
         return HDF5Reader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                          transform=transform, train=train, n_transform_proc=1)
+                          transform=transform, train=train, num_workers=1)
     elif filetype == "sound":
         return SoundReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, n_transform_proc=1)
+                           transform=transform, train=train, num_workers=1)
     else:
         raise NotImplementedError(f"filetype={filetype}")
 
@@ -105,7 +105,7 @@ class BaseReader(IterableDataset):
                  transform: Transformation = None, train=False,
                  batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
-                 data_cache_mb=4096, n_transform_proc: int = None,
+                 data_cache_mb=4096, num_workers: int = 1,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(
@@ -169,14 +169,14 @@ class BaseReader(IterableDataset):
         self.transform = eval(self.transform_name)
 
         # Set up a process pool to apply the transform if there is one
-        if transform.is_null():
-            self.n_transform_proc, self.process_pool = None, None
+        if transform.is_null() or (num_workers is not None and num_workers < 1):
+            self.num_workers, self.process_pool = 0, None
         else:
-            self.n_transform_proc = n_transform_proc
-            if self.n_transform_proc is None:
+            self.num_workers = num_workers
+            if self.num_workers is None:
                 ncpu = os.cpu_count() or 1
-                self.n_transform_proc = max(1, math.ceil(ncpu / self._n_parts) - 1)
-            self.process_pool = mp.Pool(self.n_transform_proc)
+                self.num_workers = max(1, math.ceil(ncpu / self._n_parts) - 1)
+            self.process_pool = mp.Pool(self.num_workers)
 
         # For pre-fetching and caching hdf5 files in memory.
         self.pre_fetch_next_epoch = pre_fetch_next_epoch
@@ -301,10 +301,10 @@ class BaseReader(IterableDataset):
         file_dict, and returns them (in desired format) along w/ their keys."""
         if self.process_pool is not None:
             # c is chunk size
-            c = min(50, math.ceil(len(file_dict) / (self.n_transform_proc * 4)))
+            c = min(32, math.ceil(len(file_dict) / (self.num_workers * 4)))
             it = self.process_pool.imap(self.transform, file_dict.items(), c)
         else:
-            it = file_dict.values()
+            it = map(self.transform, file_dict.items())
         return zip(file_dict.keys(), map(self.datadict_to_output, it))
 
     def __iter__(self):

@@ -258,8 +258,9 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `ensure_equal_parts`: Whether to ensure that all parallel processes receive the same number of batches to process.
   This should always be enabled if you are training with `DistributedDataParallel`, but you may wish to disable it
   if you are evaluating your model and wish to have each utterance processed exactly once.
-- `n_transform_proc`: (default `None`): the number of parallel processes to use to apply the data transformation
-  (specified by `transform_conf`) to the data being loaded. Default is `math.ceil(os.n_cpu() / num_replicas) - 1`.
+- `num_workers`: (default `1`): the number of parallel processes to use to apply the data transformation
+  (specified by `transform_conf`) to the data being loaded. If `None`, the value used is
+  `math.ceil(os.n_cpu() / num_replicas) - 1`.
 - `data_cache_mb`: (default `4096`): the number of megabytes the cache (for pre-fetching archive files into memory,
   as described [above](#archive-cache)) can contain. 
 - `spmodel`: (default `None`): the path to a `sentencepiece` BPE model to use to tokenize the text
@@ -301,13 +302,16 @@ depends on Huggingface's `transformers` library, which can installed by invoking
 detailed walkthrough of this code can be found [here](train_example/README.md).
 
 ### Debugging Notes
-1. If your code hangs, examine your log files. If you find `OSError: [Errno 12] Cannot allocate memory`, then try
-    1. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
+1. If your code hangs or starts running very slowly, try the following solutions:
+    1. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
+    specify this manually, the default is `1`. In some cases, setting it to `0` may help, but try (2) first.
+    2. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
     this manually, the default is `4096`.
-    2. Setting `n_transform_proc` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
-    specify this manually, the default is `math.ceil(os.n_cpu() / num_replicas) - 1`, where `num_replicas` is the
-    number of distributed replicas (either provided as an argument, or inferred automatically).
     3. Adding additional swap memory to your system.
+
+    These solutions can address hangs due to one or more processes triggering
+    `OSError: [Errno 12] Cannot allocate memory`, but (i) and (ii) can also address cases of slow training
+    due to I/O thrashing.
 
 # Combining Datasets
 ### Loading from Multiple Datasets

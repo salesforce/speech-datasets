@@ -64,13 +64,13 @@ def parse_args():
     return args
 
 
-def get_data_loader(datasets, args, shuffle, n_transform_proc=7):
+def get_data_loader(datasets, args, shuffle, num_workers=7):
     return SpeechDataLoader(
         datasets, shuffle=shuffle, batch_size=args.batch_size,
         spmodel=args.sentencepiece_model,
         transform_conf=args.transform_conf,
         precomputed_feats_type=args.feats_type,
-        n_transform_proc=n_transform_proc)
+        num_workers=num_workers)
 
 
 def main():
