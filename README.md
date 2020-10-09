@@ -95,6 +95,9 @@ with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as 
         # do training...
 
         # next() increments epoch & step within epoch automatically
+        # Note: current_position and epoch correspond to the the batch that was
+        # JUST yielded, not the batch that would be yielded if you called
+        # train_loader.next() again!
         epoch = train_loader.epoch
         step_in_epoch = train_loader.current_position
 
