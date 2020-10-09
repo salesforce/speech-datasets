@@ -320,7 +320,8 @@ class BaseReader(IterableDataset):
                 self.load_files(scp_dict)
 
             i_batch, batch = 0, []
-            for expected_path in scp_dict:
+            for i_file, expected_path in enumerate(scp_dict):
+                n_from_file = 0
                 path, file_dict = self.queue.get(expected_path)
 
                 # Pre-fetch the next epoch as soon as we're done with this one
@@ -337,9 +338,17 @@ class BaseReader(IterableDataset):
                         for bsz in bszs[i_batch:]:
                             while len(batch) < bsz:
                                 batch.append(next(output_iterator))
+                                n_from_file = n_from_file + 1
                             yield batch
                             i_batch, batch = i_batch + 1, []
+                        if i_file == len(scp_dict) - 1:
+                            raise StopIteration
                     except StopIteration:
+                        assert n_from_file == len(file_dict), \
+                            f"Expected to get {len(file_dict)} utts from " \
+                            f"{os.path.basename(path)}, but got {n_from_file}."
+                        logger.debug(f"FINISHED FILE {i_file+1}/{len(scp_dict)}: "
+                                     f"{os.path.basename(path)}")
                         continue
 
         else:  # self.ark_or_scp == "ark"
