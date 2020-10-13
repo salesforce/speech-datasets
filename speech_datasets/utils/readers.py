@@ -340,6 +340,9 @@ class BaseReader(IterableDataset):
                             if i_batch == len(bszs) - 1:
                                 raise StopIteration
                             else:
+                                assert len(batch) == bszs[i_batch], \
+                                    f"Expected batch {i_batch} to have size {bszs[i_batch]}, " \
+                                    f"but got a batch of size {len(batch)} instead"
                                 yield batch
                                 batch = []
 
@@ -350,6 +353,9 @@ class BaseReader(IterableDataset):
                         logger.debug(f"FINISHED FILE {j_file+1}/{len(scp_dict)}: "
                                      f"{os.path.basename(path)}")
                         if i_batch == len(bszs) - 1:
+                            assert len(batch) == bszs[i_batch], \
+                                f"Expected batch {i_batch} to have size {bszs[i_batch]}, " \
+                                f"but got a batch of size {len(batch)} instead"
                             yield batch
                         continue
 
