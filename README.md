@@ -108,7 +108,7 @@ with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as 
 ```
 <a name="archive-cache"></a>
 Our implementation balances memory constraints with the need for random access within a dataset (issue 4), by
-asynchronously loading entire archive files into a cache with a user-specified maximum size (default `4GiB`).
+asynchronously loading entire archive files into a cache with a user-specified maximum size (default `4096MiB`).
 We fetch the next archive file into memory as soon as the cache has free space.
 
 <a name="random-policy"></a>

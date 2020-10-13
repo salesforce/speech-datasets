@@ -136,7 +136,6 @@ class BaseReader(IterableDataset):
         # For loading data from SCP
         self._n_parts = n_parts
         self._i_part = i_part
-        self._seed = self._fetch_seed = seed
         self._shuffle = shuffle
         self._batch_size = batch_size
         self._max_len = max_len
@@ -172,21 +171,20 @@ class BaseReader(IterableDataset):
         if transform.is_null() or (num_workers is not None and num_workers < 1):
             self.num_workers, self.process_pool = 0, None
         else:
-            self.num_workers = num_workers
-            if self.num_workers is None:
+            if num_workers is None:
                 ncpu = os.cpu_count() or 1
-                self.num_workers = max(1, math.ceil(ncpu / self._n_parts) - 1)
+                num_workers = max(1, math.ceil(ncpu / self._n_parts) - 1)
+            self.num_workers = num_workers
             self.process_pool = mp.Pool(self.num_workers)
 
-        # For pre-fetching and caching hdf5 files in memory.
+        # For pre-fetching and caching hdf5/ark files in memory.
         self.pre_fetch_next_epoch = pre_fetch_next_epoch
         self.queue = FileQueue(max_size=data_cache_mb * (2 ** 20),
                                read_file=self.get_file_dict,
                                get_file_size=self.file_dict_size)
         self.files_loaded = None
-        self.thread_pool = ThreadPoolExecutor()
-        if self.pre_fetch_next_epoch:
-            self.load_files()
+        self.thread_pool = ThreadPoolExecutor(max_workers=1)
+        self.seed = seed
 
         # Make sure that the data loader is shut down in case of premature exits
         atexit.register(_weakref_close, weakref.ref(self))
@@ -241,7 +239,7 @@ class BaseReader(IterableDataset):
         """Sets the random seed & cancels the current file-loading job if we are
         currently (or have already) pre-fetched data for the wrong seed."""
         self._seed = seed
-        if seed != self._fetch_seed and self.shuffle:
+        if not hasattr(self, "_fetch_seed") or (seed != self._fetch_seed and self.shuffle):
             self.close()
             self._fetch_seed = seed
             scp_dict, bszs = self.get_scp_dict_and_bszs()
@@ -320,7 +318,7 @@ class BaseReader(IterableDataset):
                 self.load_files(scp_dict)
 
             i_batch, batch = 0, []
-            for i_file, expected_path in enumerate(scp_dict):
+            for j_file, expected_path in enumerate(scp_dict):
                 n_from_file = 0
                 path, file_dict = self.queue.get(expected_path)
 
@@ -335,20 +333,24 @@ class BaseReader(IterableDataset):
                     yield from output_iterator
                 else:
                     try:
-                        for bsz in bszs[i_batch:]:
-                            while len(batch) < bsz:
+                        for i_batch in range(i_batch, len(bszs)):
+                            while len(batch) < bszs[i_batch]:
                                 batch.append(next(output_iterator))
                                 n_from_file = n_from_file + 1
-                            yield batch
-                            i_batch, batch = i_batch + 1, []
-                        if i_file == len(scp_dict) - 1:
-                            raise StopIteration
+                            if i_batch == len(bszs) - 1:
+                                raise StopIteration
+                            else:
+                                yield batch
+                                batch = []
+
                     except StopIteration:
                         assert n_from_file == len(file_dict), \
                             f"Expected to get {len(file_dict)} utts from " \
                             f"{os.path.basename(path)}, but got {n_from_file}."
-                        logger.debug(f"FINISHED FILE {i_file+1}/{len(scp_dict)}: "
+                        logger.debug(f"FINISHED FILE {j_file+1}/{len(scp_dict)}: "
                                      f"{os.path.basename(path)}")
+                        if i_batch == len(bszs) - 1:
+                            yield batch
                         continue
 
         else:  # self.ark_or_scp == "ark"
