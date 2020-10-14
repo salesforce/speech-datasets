@@ -229,7 +229,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         """
         # For using the next() syntax
         self.iter = None
-        self.current_position = -1
+        self.current_position = 0
 
         # Initialize parameters for distributed data loading
         is_dist = dist.is_available() and dist.is_initialized()
@@ -327,9 +327,9 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         return self.dataset.seed
 
     def set_epoch(self, epoch):
-        self.dataset.seed = epoch
         self.iter = None
-        self.current_position = -1
+        self.dataset.seed = epoch
+        self.current_position = 0
 
     def close(self):
         self.dataset.close()
@@ -361,14 +361,26 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
         """Return the next data batch."""
         if self.iter is None:
             self.iter = iter(self)
+
+        # try to get the next data point from the iterator, but loop back to
+        # the start if the reported length is too long. note that if length
+        # is correct reported, we should not encounter any StopIteration
         try:
+            ret = next(self.iter)
             self.current_position += 1
-            return next(self.iter)
         except StopIteration:
+            logger.warning(f"Reported len(self.dataset)={len(self)} for epoch "
+                           f"{self.epoch}, but actual length is "
+                           f"{self.current_position}. This is a bug.")
+            self.iter = None
+            return self.next()
+
+        # Increment the epoch if we just hit the end of the current one
+        if self.current_position == len(self):
             self.set_epoch(self.epoch + 1)
-            self.current_position = 0
             self.iter = iter(self)
-            return next(self.iter)
+
+        return ret
 
     def __enter__(self):
         return self
