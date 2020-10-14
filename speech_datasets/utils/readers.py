@@ -337,7 +337,7 @@ class BaseReader(IterableDataset):
                             while len(batch) < bszs[i_batch]:
                                 batch.append(next(output_iterator))
                                 n_from_file = n_from_file + 1
-                            if i_batch == len(bszs) - 1:
+                            if i_batch == len(bszs) - 1 and j_file == len(scp_dict) - 1:
                                 raise StopIteration
                             else:
                                 assert len(batch) == bszs[i_batch], \
@@ -352,7 +352,7 @@ class BaseReader(IterableDataset):
                             f"{os.path.basename(path)}, but got {n_from_file}."
                         logger.debug(f"FINISHED FILE {j_file+1}/{len(scp_dict)}: "
                                      f"{os.path.basename(path)}")
-                        if i_batch == len(bszs) - 1:
+                        if i_batch == len(bszs) - 1 and j_file == len(scp_dict) - 1:
                             assert len(batch) == bszs[i_batch], \
                                 f"Expected batch {i_batch} to have size {bszs[i_batch]}, " \
                                 f"but got a batch of size {len(batch)} instead"
