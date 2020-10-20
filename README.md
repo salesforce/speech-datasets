@@ -131,6 +131,115 @@ both `speech_datasets` and all dependencies.  To set up a Python `<python_ver>` 
 ```shell script
 make clean all CONDA=<conda_path> VENV_NAME=<venv_name> PYTHON_VERSION=<python_ver> TORCH_VERSION=<torch_ver>
 ```
+
+Getting error running this below on Ubuntu (no prior conda installed):
+```
+make clean all VENV_NAME=env3
+rm -rf *.egg-info
+rm -rf tools/venv
+rm -f tools/miniconda.sh
+find . -iname "*.pyc" -delete
+rm -rf tools/*.done
+tools/install_anaconda.sh 3.7.3 "" tools/venv env3 . "pytorch=1.4.0 cudatoolkit=10.1 -c pytorch" "-c pykaldi pykaldi-cpu"
+PREFIX=/home/ykang/Repositories/speech-datasets/tools/venv
+Unpacking payload ...
+Collecting package metadata (current_repodata.json): done                                                                                                                                
+Solving environment: done
+
+## Package Plan ##
+
+  environment location: /home/ykang/Repositories/speech-datasets/tools/venv
+
+  added / updated specs:
+    - _libgcc_mutex==0.1=main
+    - ca-certificates==2020.1.1=0
+    - certifi==2020.4.5.1=py38_0
+    - cffi==1.14.0=py38he30daa8_1
+    - chardet==3.0.4=py38_1003
+    - conda-package-handling==1.6.1=py38h7b6447c_0
+    - conda==4.8.3=py38_0
+    - cryptography==2.9.2=py38h1ba5d50_0
+    - idna==2.9=py_1
+    - ld_impl_linux-64==2.33.1=h53a641e_7
+    - libedit==3.1.20181209=hc058e9b_0
+    - libffi==3.3=he6710b0_1
+    - libgcc-ng==9.1.0=hdf63c60_0
+    - libstdcxx-ng==9.1.0=hdf63c60_0
+    - ncurses==6.2=he6710b0_1
+    - openssl==1.1.1g=h7b6447c_0
+    - pip==20.0.2=py38_3
+    - pycosat==0.6.3=py38h7b6447c_1
+    - pycparser==2.20=py_0
+    - pyopenssl==19.1.0=py38_0
+    - pysocks==1.7.1=py38_0
+    - python==3.8.3=hcff3b4d_0
+    - readline==8.0=h7b6447c_0
+    - requests==2.23.0=py38_0
+    - ruamel_yaml==0.15.87=py38h7b6447c_0
+    - setuptools==46.4.0=py38_0
+    - six==1.14.0=py38_0
+    - sqlite==3.31.1=h62c20be_1
+    - tk==8.6.8=hbc83047_0
+    - tqdm==4.46.0=py_0
+    - urllib3==1.25.8=py38_0
+    - wheel==0.34.2=py38_0
+    - xz==5.2.5=h7b6447c_0
+    - yaml==0.1.7=had09818_2
+    - zlib==1.2.11=h7b6447c_3
+
+
+The following NEW packages will be INSTALLED:
+
+  _libgcc_mutex      pkgs/main/linux-64::_libgcc_mutex-0.1-main
+  ca-certificates    pkgs/main/linux-64::ca-certificates-2020.1.1-0
+  certifi            pkgs/main/linux-64::certifi-2020.4.5.1-py38_0
+  cffi               pkgs/main/linux-64::cffi-1.14.0-py38he30daa8_1
+  chardet            pkgs/main/linux-64::chardet-3.0.4-py38_1003
+  conda              pkgs/main/linux-64::conda-4.8.3-py38_0
+  conda-package-han~ pkgs/main/linux-64::conda-package-handling-1.6.1-py38h7b6447c_0
+  cryptography       pkgs/main/linux-64::cryptography-2.9.2-py38h1ba5d50_0
+  idna               pkgs/main/noarch::idna-2.9-py_1
+  ld_impl_linux-64   pkgs/main/linux-64::ld_impl_linux-64-2.33.1-h53a641e_7
+  libedit            pkgs/main/linux-64::libedit-3.1.20181209-hc058e9b_0
+  libffi             pkgs/main/linux-64::libffi-3.3-he6710b0_1
+  libgcc-ng          pkgs/main/linux-64::libgcc-ng-9.1.0-hdf63c60_0
+  libstdcxx-ng       pkgs/main/linux-64::libstdcxx-ng-9.1.0-hdf63c60_0
+  ncurses            pkgs/main/linux-64::ncurses-6.2-he6710b0_1
+  openssl            pkgs/main/linux-64::openssl-1.1.1g-h7b6447c_0
+  pip                pkgs/main/linux-64::pip-20.0.2-py38_3
+  pycosat            pkgs/main/linux-64::pycosat-0.6.3-py38h7b6447c_1
+  pycparser          pkgs/main/noarch::pycparser-2.20-py_0
+  pyopenssl          pkgs/main/linux-64::pyopenssl-19.1.0-py38_0
+  pysocks            pkgs/main/linux-64::pysocks-1.7.1-py38_0
+  python             pkgs/main/linux-64::python-3.8.3-hcff3b4d_0
+  readline           pkgs/main/linux-64::readline-8.0-h7b6447c_0
+  requests           pkgs/main/linux-64::requests-2.23.0-py38_0
+  ruamel_yaml        pkgs/main/linux-64::ruamel_yaml-0.15.87-py38h7b6447c_0
+  setuptools         pkgs/main/linux-64::setuptools-46.4.0-py38_0
+  six                pkgs/main/linux-64::six-1.14.0-py38_0
+  sqlite             pkgs/main/linux-64::sqlite-3.31.1-h62c20be_1
+  tk                 pkgs/main/linux-64::tk-8.6.8-hbc83047_0
+  tqdm               pkgs/main/noarch::tqdm-4.46.0-py_0
+  urllib3            pkgs/main/linux-64::urllib3-1.25.8-py38_0
+  wheel              pkgs/main/linux-64::wheel-0.34.2-py38_0
+  xz                 pkgs/main/linux-64::xz-5.2.5-h7b6447c_0
+  yaml               pkgs/main/linux-64::yaml-0.1.7-had09818_2
+  zlib               pkgs/main/linux-64::zlib-1.2.11-h7b6447c_3
+
+
+Preparing transaction: done
+Executing transaction: done
+installation finished.
+tools/install_anaconda.sh: line 35: venv/bin/conda: No such file or directory
+Enviroment env3 already exists. Continue setup anyways? (y/n) y
+Continuing to set up environment env3.
+Could not find conda environment: env3
+You can list all discoverable environments with `conda info --envs`.
+
+Makefile:35: recipe for target 'tools/conda.done' failed
+make: *** [tools/conda.done] Error 1
+```
+
 By default, `<conda_path>` is the system's installation of `conda`, `<venv_name>` is `datasets`, `<python_ver>` is
 `3.7.3`, and `<torch_ver>` is `1.4.0`. Note that we require `torch>=1.2.0`. If you don't have `conda` installed
 already, the `Makefile` will install it for you in `tools/venv`; otherwise, `tools/venv` will be a symbolic link to
