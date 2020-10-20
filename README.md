@@ -131,6 +131,38 @@ both `speech_datasets` and all dependencies.  To set up a Python `<python_ver>` 
 ```shell script
 make clean all CONDA=<conda_path> VENV_NAME=<venv_name> PYTHON_VERSION=<python_ver> TORCH_VERSION=<torch_ver>
 ```
+I'm getting an error here, running this (I don't have conda installed)
+```
+make clean all VENV_NAME=env3
+rm -rf *.egg-info
+rm -rf tools/venv
+rm -f tools/miniconda.sh
+find . -iname "*.pyc" -delete
+rm -rf tools/*.done
+tools/install_anaconda.sh 3.7.3 "" tools/venv env3 . "pytorch=1.4.0 cpuonly -c pytorch" "-c pykaldi pykaldi-cpu"
+--2020-10-20 11:08:45--  https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+Resolving repo.continuum.io (repo.continuum.io)... 104.18.200.79, 104.18.201.79, 2606:4700::6812:c84f, ...
+Connecting to repo.continuum.io (repo.continuum.io)|104.18.200.79|:443... connected.
+HTTP request sent, awaiting response... 301 Moved Permanently
+Location: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh [following]
+--2020-10-20 11:08:46--  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+Resolving repo.anaconda.com (repo.anaconda.com)... 104.16.130.3, 104.16.131.3, 2606:4700::6810:8303, ...
+Connecting to repo.anaconda.com (repo.anaconda.com)|104.16.130.3|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 93052469 (89M) [application/x-sh]
+Saving to: ‘miniconda.sh’
+
+miniconda.sh                                         100%[======================================================================================================================>]  88.74M  7.57MB/s    in 11s     
+
+2020-10-20 11:08:57 (8.04 MB/s) - ‘miniconda.sh’ saved [93052469/93052469]
+
+PREFIX=/Users/ykang/Repositories/speech-datasets/tools/venv
+Unpacking payload ...
+miniconda.sh: line 404: /Users/ykang/Repositories/speech-datasets/tools/venv/conda.exe: cannot execute binary file
+miniconda.sh: line 406: /Users/ykang/Repositories/speech-datasets/tools/venv/conda.exe: cannot execute binary file
+make: *** [tools/conda.done] Error 1
+```
+
 By default, `<conda_path>` is the system's installation of `conda`, `<venv_name>` is `datasets`, `<python_ver>` is
 `3.7.3`, and `<torch_ver>` is `1.4.0`. Note that we require `torch>=1.2.0`. If you don't have `conda` installed
 already, the `Makefile` will install it for you in `tools/venv`; otherwise, `tools/venv` will be a symbolic link to
