@@ -131,6 +131,420 @@ both `speech_datasets` and all dependencies.  To set up a Python `<python_ver>` 
 ```shell script
 make clean all CONDA=<conda_path> VENV_NAME=<venv_name> PYTHON_VERSION=<python_ver> TORCH_VERSION=<torch_ver>
 ```
+
+Getting an error runnig the following, where I have manually installed conda myself
+```
+make clean all VENV_NAME=env3 CONDA=~/miniconda3/bin/conda
+rm -rf *.egg-info
+rm -rf tools/venv
+rm -f tools/miniconda.sh
+find . -iname "*.pyc" -delete
+rm -rf tools/*.done
+tools/install_anaconda.sh 3.7.3 "/Users/ykang/miniconda3/bin/conda" tools/venv env3 . "pytorch=1.4.0 cpuonly -c pytorch" "-c pykaldi pykaldi-cpu"
+/Users/ykang/miniconda3/lib/python3.8/multiprocessing/resource_tracker.py:216: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+Collecting package metadata (current_repodata.json): done
+Solving environment: failed with repodata from current_repodata.json, will retry with next repodata source.
+Collecting package metadata (repodata.json): done
+Solving environment: done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.8.3
+  latest version: 4.9.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+## Package Plan ##
+
+  environment location: /Users/ykang/miniconda3/envs/env3
+
+  added / updated specs:
+    - python=3.7.3
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    ca-certificates-2020.10.14 |                0         121 KB
+    certifi-2020.6.20          |           py37_0         156 KB
+    libedit-3.1.20191231       |       h1de35cc_1          96 KB
+    libffi-3.2.1               |    h0a44026_1007          43 KB
+    openssl-1.1.1h             |       haf1e3a3_0         2.2 MB
+    pip-20.2.3                 |           py37_0         1.7 MB
+    python-3.7.3               |       h359304d_0        18.0 MB
+    readline-7.0               |       h1de35cc_5         316 KB
+    setuptools-50.3.0          |   py37h0dc7051_1         710 KB
+    sqlite-3.33.0              |       hffcf06c_0         1.3 MB
+    tk-8.6.10                  |       hb0a8c7a_0         3.0 MB
+    wheel-0.35.1               |             py_0          37 KB
+    ------------------------------------------------------------
+                                           Total:        27.6 MB
+
+The following NEW packages will be INSTALLED:
+
+  ca-certificates    pkgs/main/osx-64::ca-certificates-2020.10.14-0
+  certifi            pkgs/main/osx-64::certifi-2020.6.20-py37_0
+  libcxx             pkgs/main/osx-64::libcxx-10.0.0-1
+  libedit            pkgs/main/osx-64::libedit-3.1.20191231-h1de35cc_1
+  libffi             pkgs/main/osx-64::libffi-3.2.1-h0a44026_1007
+  ncurses            pkgs/main/osx-64::ncurses-6.2-h0a44026_1
+  openssl            pkgs/main/osx-64::openssl-1.1.1h-haf1e3a3_0
+  pip                pkgs/main/osx-64::pip-20.2.3-py37_0
+  python             pkgs/main/osx-64::python-3.7.3-h359304d_0
+  readline           pkgs/main/osx-64::readline-7.0-h1de35cc_5
+  setuptools         pkgs/main/osx-64::setuptools-50.3.0-py37h0dc7051_1
+  sqlite             pkgs/main/osx-64::sqlite-3.33.0-hffcf06c_0
+  tk                 pkgs/main/osx-64::tk-8.6.10-hb0a8c7a_0
+  wheel              pkgs/main/noarch::wheel-0.35.1-py_0
+  xz                 pkgs/main/osx-64::xz-5.2.5-h1de35cc_0
+  zlib               pkgs/main/osx-64::zlib-1.2.11-h1de35cc_3
+
+
+
+Downloading and Extracting Packages
+readline-7.0         | 316 KB    | ######################################################################################################################################################################### | 100% 
+openssl-1.1.1h       | 2.2 MB    | ######################################################################################################################################################################### | 100% 
+ca-certificates-2020 | 121 KB    | ######################################################################################################################################################################### | 100% 
+python-3.7.3         | 18.0 MB   | ######################################################################################################################################################################### | 100% 
+pip-20.2.3           | 1.7 MB    | ######################################################################################################################################################################### | 100% 
+setuptools-50.3.0    | 710 KB    | ######################################################################################################################################################################### | 100% 
+wheel-0.35.1         | 37 KB     | ######################################################################################################################################################################### | 100% 
+certifi-2020.6.20    | 156 KB    | ######################################################################################################################################################################### | 100% 
+sqlite-3.33.0        | 1.3 MB    | ######################################################################################################################################################################### | 100% 
+libffi-3.2.1         | 43 KB     | ######################################################################################################################################################################### | 100% 
+tk-8.6.10            | 3.0 MB    | ######################################################################################################################################################################### | 100% 
+libedit-3.1.20191231 | 96 KB     | ######################################################################################################################################################################### | 100% 
+Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+#
+# To activate this environment, use
+#
+#     $ conda activate env3
+#
+# To deactivate an active environment, use
+#
+#     $ conda deactivate
+
+tools/install_anaconda.sh: line 48: [: !=: unary operator expected
+Collecting package metadata (current_repodata.json): done
+Solving environment: done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.8.3
+  latest version: 4.9.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+## Package Plan ##
+
+  environment location: /Users/ykang/miniconda3/envs/env3
+
+  added / updated specs:
+    - conda
+    - pip
+    - setuptools
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    brotlipy-0.7.0             |py37haf1e3a3_1000         357 KB  anaconda
+    ca-certificates-2020.10.14 |                0         127 KB  anaconda
+    certifi-2020.6.20          |           py37_0         159 KB  anaconda
+    cffi-1.14.0                |   py37hb5b8e2f_0         219 KB  anaconda
+    chardet-3.0.4              |        py37_1003         173 KB  anaconda
+    conda-4.9.0                |           py37_0         3.0 MB  anaconda
+    conda-package-handling-1.7.2|   py37h22f3db7_0         1.6 MB  anaconda
+    cryptography-3.1.1         |   py37hddc9c9b_0         605 KB  anaconda
+    idna-2.10                  |             py_0          56 KB  anaconda
+    openssl-1.1.1h             |       haf1e3a3_0         3.4 MB  anaconda
+    pip-20.2.3                 |           py37_0         2.0 MB  anaconda
+    pycosat-0.6.3              |   py37h1de35cc_0         107 KB  anaconda
+    pycparser-2.20             |             py_2          94 KB  anaconda
+    pyopenssl-19.1.0           |             py_1          47 KB  anaconda
+    pysocks-1.7.1              |           py37_0          30 KB  anaconda
+    requests-2.24.0            |             py_0          54 KB  anaconda
+    ruamel_yaml-0.15.87        |   py37haf1e3a3_1         241 KB  anaconda
+    setuptools-50.3.0          |   py37h0dc7051_1         892 KB  anaconda
+    six-1.15.0                 |             py_0          13 KB  anaconda
+    tqdm-4.50.2                |             py_0          55 KB  anaconda
+    urllib3-1.25.10            |             py_0          93 KB  anaconda
+    yaml-0.2.5                 |       haf1e3a3_0          85 KB  anaconda
+    ------------------------------------------------------------
+                                           Total:        13.4 MB
+
+The following NEW packages will be INSTALLED:
+
+  brotlipy           anaconda/osx-64::brotlipy-0.7.0-py37haf1e3a3_1000
+  cffi               anaconda/osx-64::cffi-1.14.0-py37hb5b8e2f_0
+  chardet            anaconda/osx-64::chardet-3.0.4-py37_1003
+  conda              anaconda/osx-64::conda-4.9.0-py37_0
+  conda-package-han~ anaconda/osx-64::conda-package-handling-1.7.2-py37h22f3db7_0
+  cryptography       anaconda/osx-64::cryptography-3.1.1-py37hddc9c9b_0
+  idna               anaconda/noarch::idna-2.10-py_0
+  pycosat            anaconda/osx-64::pycosat-0.6.3-py37h1de35cc_0
+  pycparser          anaconda/noarch::pycparser-2.20-py_2
+  pyopenssl          anaconda/noarch::pyopenssl-19.1.0-py_1
+  pysocks            anaconda/osx-64::pysocks-1.7.1-py37_0
+  requests           anaconda/noarch::requests-2.24.0-py_0
+  ruamel_yaml        anaconda/osx-64::ruamel_yaml-0.15.87-py37haf1e3a3_1
+  six                anaconda/noarch::six-1.15.0-py_0
+  tqdm               anaconda/noarch::tqdm-4.50.2-py_0
+  urllib3            anaconda/noarch::urllib3-1.25.10-py_0
+  yaml               anaconda/osx-64::yaml-0.2.5-haf1e3a3_0
+
+The following packages will be SUPERSEDED by a higher-priority channel:
+
+  ca-certificates                                 pkgs/main --> anaconda
+  certifi                                         pkgs/main --> anaconda
+  openssl                                         pkgs/main --> anaconda
+  pip                                             pkgs/main --> anaconda
+  setuptools                                      pkgs/main --> anaconda
+
+
+
+Downloading and Extracting Packages
+pyopenssl-19.1.0     | 47 KB     | ######################################################################################################################################################################### | 100% 
+requests-2.24.0      | 54 KB     | ######################################################################################################################################################################### | 100% 
+conda-package-handli | 1.6 MB    | ######################################################################################################################################################################### | 100% 
+setuptools-50.3.0    | 892 KB    | ######################################################################################################################################################################### | 100% 
+brotlipy-0.7.0       | 357 KB    | ######################################################################################################################################################################### | 100% 
+chardet-3.0.4        | 173 KB    | ######################################################################################################################################################################### | 100% 
+openssl-1.1.1h       | 3.4 MB    | ######################################################################################################################################################################### | 100% 
+urllib3-1.25.10      | 93 KB     | ######################################################################################################################################################################### | 100% 
+pip-20.2.3           | 2.0 MB    | ######################################################################################################################################################################### | 100% 
+six-1.15.0           | 13 KB     | ######################################################################################################################################################################### | 100% 
+pycosat-0.6.3        | 107 KB    | ######################################################################################################################################################################### | 100% 
+pycparser-2.20       | 94 KB     | ######################################################################################################################################################################### | 100% 
+ca-certificates-2020 | 127 KB    | ######################################################################################################################################################################### | 100% 
+certifi-2020.6.20    | 159 KB    | ######################################################################################################################################################################### | 100% 
+pysocks-1.7.1        | 30 KB     | ######################################################################################################################################################################### | 100% 
+idna-2.10            | 56 KB     | ######################################################################################################################################################################### | 100% 
+yaml-0.2.5           | 85 KB     | ######################################################################################################################################################################### | 100% 
+ruamel_yaml-0.15.87  | 241 KB    | ######################################################################################################################################################################### | 100% 
+cryptography-3.1.1   | 605 KB    | ######################################################################################################################################################################### | 100% 
+tqdm-4.50.2          | 55 KB     | ######################################################################################################################################################################### | 100% 
+conda-4.9.0          | 3.0 MB    | ######################################################################################################################################################################### | 100% 
+cffi-1.14.0          | 219 KB    | ######################################################################################################################################################################### | 100% 
+Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+Collecting package metadata (current_repodata.json): done
+Solving environment: done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.8.3
+  latest version: 4.9.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+## Package Plan ##
+
+  environment location: /Users/ykang/miniconda3/envs/env3
+
+  added / updated specs:
+    - conda
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    brotlipy-0.7.0             |py37haf1e3a3_1000         329 KB
+    ca-certificates-2020.10.14 |                0         121 KB
+    certifi-2020.6.20          |           py37_0         156 KB
+    cffi-1.14.0                |   py37hb5b8e2f_0         216 KB
+    chardet-3.0.4              |        py37_1003         174 KB
+    conda-4.9.0                |           py37_0         2.9 MB
+    conda-package-handling-1.7.2|   py37h22f3db7_0         1.5 MB
+    cryptography-3.1.1         |   py37hddc9c9b_0         544 KB
+    idna-2.10                  |             py_0          50 KB
+    openssl-1.1.1h             |       haf1e3a3_0         2.2 MB
+    pycosat-0.6.3              |   py37h1de35cc_0          80 KB
+    pycparser-2.20             |             py_2          94 KB
+    pyopenssl-19.1.0           |             py_1          48 KB
+    pysocks-1.7.1              |           py37_0          30 KB
+    requests-2.24.0            |             py_0          56 KB
+    ruamel_yaml-0.15.87        |   py37haf1e3a3_1         235 KB
+    six-1.15.0                 |             py_0          13 KB
+    tqdm-4.50.2                |             py_0          56 KB
+    urllib3-1.25.10            |             py_0          98 KB
+    yaml-0.2.5                 |       haf1e3a3_0          72 KB
+    ------------------------------------------------------------
+                                           Total:         8.9 MB
+
+The following packages will be SUPERSEDED by a higher-priority channel:
+
+  brotlipy                                         anaconda --> pkgs/main
+  ca-certificates                                  anaconda --> pkgs/main
+  certifi                                          anaconda --> pkgs/main
+  cffi                                             anaconda --> pkgs/main
+  chardet                                          anaconda --> pkgs/main
+  conda                                            anaconda --> pkgs/main
+  conda-package-han~                               anaconda --> pkgs/main
+  cryptography                                     anaconda --> pkgs/main
+  idna                                             anaconda --> pkgs/main
+  openssl                                          anaconda --> pkgs/main
+  pycosat                                          anaconda --> pkgs/main
+  pycparser                                        anaconda --> pkgs/main
+  pyopenssl                                        anaconda --> pkgs/main
+  pysocks                                          anaconda --> pkgs/main
+  requests                                         anaconda --> pkgs/main
+  ruamel_yaml                                      anaconda --> pkgs/main
+  six                                              anaconda --> pkgs/main
+  tqdm                                             anaconda --> pkgs/main
+  urllib3                                          anaconda --> pkgs/main
+  yaml                                             anaconda --> pkgs/main
+
+
+
+Downloading and Extracting Packages
+requests-2.24.0      | 56 KB     | ######################################################################################################################################################################### | 100% 
+pysocks-1.7.1        | 30 KB     | ######################################################################################################################################################################### | 100% 
+pyopenssl-19.1.0     | 48 KB     | ######################################################################################################################################################################### | 100% 
+yaml-0.2.5           | 72 KB     | ######################################################################################################################################################################### | 100% 
+conda-4.9.0          | 2.9 MB    | ######################################################################################################################################################################### | 100% 
+urllib3-1.25.10      | 98 KB     | ######################################################################################################################################################################### | 100% 
+cffi-1.14.0          | 216 KB    | ######################################################################################################################################################################### | 100% 
+conda-package-handli | 1.5 MB    | ######################################################################################################################################################################### | 100% 
+cryptography-3.1.1   | 544 KB    | ######################################################################################################################################################################### | 100% 
+certifi-2020.6.20    | 156 KB    | ######################################################################################################################################################################### | 100% 
+idna-2.10            | 50 KB     | ######################################################################################################################################################################### | 100% 
+six-1.15.0           | 13 KB     | ######################################################################################################################################################################### | 100% 
+ruamel_yaml-0.15.87  | 235 KB    | ######################################################################################################################################################################### | 100% 
+ca-certificates-2020 | 121 KB    | ######################################################################################################################################################################### | 100% 
+chardet-3.0.4        | 174 KB    | ######################################################################################################################################################################### | 100% 
+pycparser-2.20       | 94 KB     | ######################################################################################################################################################################### | 100% 
+pycosat-0.6.3        | 80 KB     | ######################################################################################################################################################################### | 100% 
+tqdm-4.50.2          | 56 KB     | ######################################################################################################################################################################### | 100% 
+brotlipy-0.7.0       | 329 KB    | ######################################################################################################################################################################### | 100% 
+openssl-1.1.1h       | 2.2 MB    | ######################################################################################################################################################################### | 100% 
+Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+
+conda install -y pytorch=1.4.0 cpuonly -c pytorch
+Collecting package metadata (current_repodata.json): done
+Solving environment: done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.8.3
+  latest version: 4.9.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+## Package Plan ##
+
+  environment location: /Users/ykang/miniconda3/envs/env3
+
+  added / updated specs:
+    - cpuonly
+    - pytorch=1.4.0
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    blas-1.0                   |              mkl           6 KB
+    cpuonly-1.0                |                0           2 KB  pytorch
+    intel-openmp-2019.4        |              233         887 KB
+    mkl-2019.4                 |              233       101.9 MB
+    mkl-service-2.3.0          |   py37hfbe908c_0         201 KB
+    mkl_fft-1.2.0              |   py37hc64f4ea_0         141 KB
+    mkl_random-1.1.1           |   py37h959d312_0         284 KB
+    ninja-1.10.1               |   py37h879752b_0         102 KB
+    numpy-1.19.1               |   py37h3b9f5b6_0          21 KB
+    numpy-base-1.19.1          |   py37hcfb5961_0         4.0 MB
+    pytorch-1.4.0              |          py3.7_0        34.5 MB  pytorch
+    ------------------------------------------------------------
+                                           Total:       142.1 MB
+
+The following NEW packages will be INSTALLED:
+
+  blas               pkgs/main/osx-64::blas-1.0-mkl
+  cpuonly            pytorch/noarch::cpuonly-1.0-0
+  intel-openmp       pkgs/main/osx-64::intel-openmp-2019.4-233
+  mkl                pkgs/main/osx-64::mkl-2019.4-233
+  mkl-service        pkgs/main/osx-64::mkl-service-2.3.0-py37hfbe908c_0
+  mkl_fft            pkgs/main/osx-64::mkl_fft-1.2.0-py37hc64f4ea_0
+  mkl_random         pkgs/main/osx-64::mkl_random-1.1.1-py37h959d312_0
+  ninja              pkgs/main/osx-64::ninja-1.10.1-py37h879752b_0
+  numpy              pkgs/main/osx-64::numpy-1.19.1-py37h3b9f5b6_0
+  numpy-base         pkgs/main/osx-64::numpy-base-1.19.1-py37hcfb5961_0
+  pytorch            pytorch/osx-64::pytorch-1.4.0-py3.7_0
+
+
+
+Downloading and Extracting Packages
+cpuonly-1.0          | 2 KB      | ######################################################################################################################################################################### | 100% 
+mkl_random-1.1.1     | 284 KB    | ######################################################################################################################################################################### | 100% 
+intel-openmp-2019.4  | 887 KB    | ######################################################################################################################################################################### | 100% 
+blas-1.0             | 6 KB      | ######################################################################################################################################################################### | 100% 
+ninja-1.10.1         | 102 KB    | ######################################################################################################################################################################### | 100% 
+numpy-base-1.19.1    | 4.0 MB    | ######################################################################################################################################################################### | 100% 
+numpy-1.19.1         | 21 KB     | ######################################################################################################################################################################### | 100% 
+mkl-2019.4           | 101.9 MB  | ######################################################################################################################################################################### | 100% 
+mkl-service-2.3.0    | 201 KB    | ######################################################################################################################################################################### | 100% 
+mkl_fft-1.2.0        | 141 KB    | ######################################################################################################################################################################### | 100% 
+pytorch-1.4.0        | 34.5 MB   | ######################################################################################################################################################################### | 100% 
+Preparing transaction: done
+Verifying transaction: done
+Executing transaction: done
+
+conda install -y -c pykaldi pykaldi-cpu
+Collecting package metadata (current_repodata.json): done
+Solving environment: failed with initial frozen solve. Retrying with flexible solve.
+Collecting package metadata (repodata.json): done
+Solving environment: failed with initial frozen solve. Retrying with flexible solve.
+
+PackagesNotFoundError: The following packages are not available from current channels:
+
+  - pykaldi-cpu
+
+Current channels:
+
+  - https://conda.anaconda.org/pykaldi/osx-64
+  - https://conda.anaconda.org/pykaldi/noarch
+  - https://repo.anaconda.com/pkgs/main/osx-64
+  - https://repo.anaconda.com/pkgs/main/noarch
+  - https://repo.anaconda.com/pkgs/r/osx-64
+  - https://repo.anaconda.com/pkgs/r/noarch
+
+To search for alternate channels that may provide the conda package you're
+looking for, navigate to
+
+    https://anaconda.org
+
+and use the search bar at the top of the page.
+
+
+make: *** [tools/conda.done] Error 1
+```
+
 By default, `<conda_path>` is the system's installation of `conda`, `<venv_name>` is `datasets`, `<python_ver>` is
 `3.7.3`, and `<torch_ver>` is `1.4.0`. Note that we require `torch>=1.2.0`. If you don't have `conda` installed
 already, the `Makefile` will install it for you in `tools/venv`; otherwise, `tools/venv` will be a symbolic link to
