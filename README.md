@@ -31,7 +31,7 @@ it suffers from a number of limitations:
 3. Changing the type of features computed requires a user to re-run an entire recipe end-to-end.
 4. Accessing random utterances within a dataset (e.g. for training a model) is challenging to perform without either
     1. loading the entire dataset into memory;
-    2. incurring expensive disk seeks by navigating reading each utterance from a file into memory on demand; or
+    2. incurring expensive disk seeks by reading each utterance from a file into memory on demand; or
     3. considerable engineering effort to write a custom caching policy that addresses this limitation.
 
 More recently, solutions like [ESPNet](https://github.com/espnet/espnet) and [TorchAudio](https://pytorch.org/audio/)
