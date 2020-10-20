@@ -87,7 +87,6 @@ cat $tdir/*.stm | \
            if ($1==";;") printf("%s %s %s",$1,$2,$3); else printf("%s %s",spk,after_spk);
            for(n=4;n<=NF;n++) printf(" %s", $n); print ""; }' \
   > $dir/stm
-#$tdir/reference/hub5e00.english.000405.stm >  $dir/stm
 cp $rtroot/data/trans_rules/en20030506.glm  $dir/glm
 
 # next line uses command substitution

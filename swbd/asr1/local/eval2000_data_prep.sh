@@ -89,7 +89,13 @@ grep -v ';;' $tdir/reference/hub5e00.english.000405.stm \
 # We'll use the stm file for sclite scoring.  There seem to be various errors
 # in the stm file that upset hubscr.pl, and we fix them here.
 sed -e 's:((:(:' -e 's:<B_ASIDE>::g' -e 's:<E_ASIDE>::g' \
-  $tdir/reference/hub5e00.english.000405.stm >  $dir/stm
+  $tdir/reference/hub5e00.english.000405.stm | \
+  awk '{
+           spk="{eval2000}"$1" "$2;
+           after_spk="{eval2000}"$3;
+           if ($1==";;") printf("%s %s %s",$1,$2,$3); else printf("%s %s",spk,after_spk);
+           for(n=4;n<=NF;n++) printf(" %s", $n); print ""; }' \
+  > $dir/stm
 cp $tdir/reference/en20000405_hub5.glm  $dir/glm
 
 # next line uses command substitution
