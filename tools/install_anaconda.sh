@@ -20,7 +20,7 @@ shift $n_required_args
 
 # Download conda if an installation isn't specified
 if [ -z ${CONDA} ]; then
-    CONDA="venv/bin/conda"
+    CONDA="${VENV_DIR}/bin/conda"
     if [ ! -e miniconda.sh ]; then
         wget --tries=3 "${CONDA_URL}" -O miniconda.sh
     fi

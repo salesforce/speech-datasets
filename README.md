@@ -29,14 +29,17 @@ it suffers from a number of limitations:
 1. The wide range of scripts and binaries can be overwhelming for a new user. 
 2. There is a large amount of code duplication between recipes for processing different datasets. 
 3. Changing the type of features computed requires a user to re-run an entire recipe end-to-end.
-4. Random access within a dataset is challenging to perform without either loading the entire dataset into memory,
-incurring expensive random disk accesses, or writing a custom caching policy to address this limitation.
+4. Accessing random utterances within a dataset (e.g. for training a model) is challenging to perform without either
+    1. loading the entire dataset into memory;
+    2. incurring expensive disk seeks by navigating reading each utterance from a file into memory on demand; or
+    3. considerable engineering effort to write a custom caching policy that addresses this limitation.
 
 More recently, solutions like [ESPNet](https://github.com/espnet/espnet) and [TorchAudio](https://pytorch.org/audio/)
 have attempted to address issues 1-3. However, ESPNet does not support data loading that can easily be decoupled from
 the end-to-end solution it provides, while TorchAudio currently lacks support for standard (but not open-source)
 datasets like Switchboard, WSJ, and Fisher. Moreover, both solutions leave issue 4 unaddressed, and their support for
-online feature computation introduces a new concern: online feature computation is computationally expensive, and using it can greatly increase training times.
+online feature computation introduces a new concern: online feature computation is computationally expensive, and using
+it can greatly increase training times.
 
 ### Key Features
 - After running a Kaldi-style data preparation script, data can be loaded directly into Python. 
@@ -126,7 +129,7 @@ issues mentioned above.
 # Getting Started
 ### Environment Setup
 To install `speech_datasets` as a Python package, we provide a `Makefile` that sets up a `conda` environment with
-both `speech_datasets` and all dependencies.  To set up a Python `<python_ver>` `conda` environment named `<venv_name>`
+both `speech_datasets` and all dependencies. To set up a Python `<python_ver>` `conda` environment named `<venv_name>`
 (either new or pre-existing) with PyTorch version `<torch_ver>`, simply call 
 ```shell script
 make clean all CONDA=<conda_path> VENV_NAME=<venv_name> PYTHON_VERSION=<python_ver> TORCH_VERSION=<torch_ver>
@@ -154,16 +157,19 @@ ESPNet).
 
 
 ##### Notes
-1. The `Makefile` will automatically detect your CUDA version (if any) and install the appropriate distribution of
+1. Our `Makefile` will only work on Linux systems! This is because we depend on
+[PyKaldi](https://github.com/pykaldi/pykaldi), which is only compatible with Linux systems (without manual compilation).
+
+2. The `Makefile` will automatically detect your CUDA version (if any) and install the appropriate distribution of
 PyTorch accordingly. If the `conda` environment `<venv_name>` already exists, you will be asked for confirmation
 before anything is installed. Once this is done, you can simply activate the `conda` environment and start using
 the package.
 
-2. We use `conda` rather than `pip` because
+3. We use `conda` rather than `pip` because
     1. We depend on [PyKaldi](https://github.com/pykaldi/pykaldi), which has a `conda` package but not a `pip` package
     2. `conda` makes it easier to set up an installation of PyTorch compatible with the installed CUDA version (if any)
 
-3. We install the Python package in editable mode (i.e. using `pip install -e .`), rather than installing it to
+4. We install the Python package in editable mode (i.e. using `pip install -e .`), rather than installing it to
 `site-packages` directly (i.e. using `pip install .`). This is because the data loader assumes that the
 `speech_datasets` package is in the same directory as all the actual datasets, i.e.  that the directory structure of
 this repo is maintained.
