@@ -299,6 +299,10 @@ and `__iter__` methods. To change the random seed used to order the data fetched
        # do stuff...
    loader.close()
     ```
+   
+   We may want to unify how to use SDL. In the very first example, it is imported as `SDL`, where here it is used as `SpeechDataLoader`. 
+   This also applies to the examples below.
+   
 This is because the asynchronous elements of the data loader (for pre-fetching data and computing data transformations
 in the background) need to be shut down manually to fully terminate.
 
