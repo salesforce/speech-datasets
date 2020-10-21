@@ -239,6 +239,11 @@ by specifying the option `--nlsyms <nlsyms>`, where `<nlsyms>` is a comma-separa
 (default `<noise>`). The resultant token list (and `sentencepiece` model for `--token-type bpe`) can be found in
 `<dataset>/<asr1|tts1>/data/token_list`. 
 
+Sentencepiece supports model types: bpe, unigram, char, and word (bpe and unigram are different, albeit very similar)
+My suggestion is
+1. have a user be able to choose between bpe, unigram, char, word
+2. for each of the options, run sentencepiece to create model & vocab
+The reasoning is that it makes seamless to switch between different tokenization methods by simply switching between sentencepiece models 
 
 ### High-Level Python Interface
 As alluded to above, the core functionality of this library is in the class `speech_datasets.SpeechDataLoader`. Its
