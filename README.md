@@ -243,7 +243,7 @@ Sentencepiece supports model types: bpe, unigram, char, and word (bpe and unigra
 My suggestion is
 1. have a user be able to choose between bpe, unigram, char, word
 2. for each of the options, run sentencepiece to create model & vocab
-The reasoning is that it makes seamless to switch between different tokenization methods by simply switching between sentencepiece models 
+The reasoning is that it makes seamless to switch between different spmodels, w/o going back and forth with spmodel & token_list 
 
 ### High-Level Python Interface
 As alluded to above, the core functionality of this library is in the class `speech_datasets.SpeechDataLoader`. Its
@@ -279,6 +279,8 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `spmodel`: (default `None`): the path to a `sentencepiece` BPE model to use to tokenize the text
 - `token_list`: (default `None`): the path to a list of `sentencepiece` BPE units to use to tokenize the text.
   the indices in `token_list` override those in `spmodel`
+  
+  Q: what is the purpose of token_list? I am guessing it works only in conjunction with spmodel?
 
 The `speech_datasets.SpeechDataLoader` class inherits from `torch.utils.data.DataLoader`, and it implements `__len__`
 and `__iter__` methods. To change the random seed used to order the data fetched, one should call
