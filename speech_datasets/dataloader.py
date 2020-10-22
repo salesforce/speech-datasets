@@ -17,7 +17,7 @@ import torch
 import torch.utils.data
 import torch.distributed as dist
 
-from speech_datasets.text import build_tokenizer
+from speech_datasets.text import SentencepieceTokenizer
 from speech_datasets.transform import Transformation
 from speech_datasets.utils import get_root
 from speech_datasets.utils.io_utils import consolidate_utt_info, get_combo_idx
@@ -219,13 +219,14 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             apply the data transformation (specified by `transform_conf`) to
             the data being loaded. Default is `1`. If `None`, the value used is
             `math.ceil(os.n_cpu() / num_replicas) - 1`.
-        :param data_cache_mb: the number of megabytes the cache (for pre-fetching
-            archive files into memory) can contain.
-        :param spmodel: the path to a `sentencepiece` BPE model to use to
-            tokenize the text
-        :param token_list: the path to a list of `sentencepiece` BPE units to
+        :param data_cache_mb: the number of megabytes the cache (for
+            pre-fetching archive files into memory) can contain.
+        :param spmodel: the path to a `sentencepiece` model to use to tokenize
+            the text. Can be trained with BPE, word, or char.
+        :param token_list: the path to a list of `sentencepiece` tokens to use
             use to tokenize the text. The indices in `token_list` override those
-            in `spmodel`.
+            in `spmodel`. By default, we will search the directory containing
+            `spmodel` for a `tokens.txt` and use it if found.
         """
         # For using the next() syntax
         self.iter = None
@@ -253,7 +254,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                     token_list = None
             if (isinstance(token_list, str) or isinstance(token_list, Path)) and not os.path.isfile(token_list):
                 token_list = None
-            self.tokenizer = build_tokenizer("bpe", spmodel, token_list)
+            self.tokenizer = SentencepieceTokenizer(spmodel, token_list)
 
         # Get all the datasets & their sub-datasets, and validate them
         datasets = [datasets] if isinstance(datasets, str) else datasets

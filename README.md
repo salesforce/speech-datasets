@@ -233,12 +233,12 @@ See [here](speech_datasets/transform/README.md) for more details.**
 6. Concatenate all text files (for language model training) into a single file.
 
 7. Use the output of stage 6 to obtain a token inventory, either BPE's, characters, or words (specify 
-`--token-type bpe` (default), `--token-type char`, or `--token-type word`, respectively). The maximum number of tokens
-is controlled by `--n_tokens <n_tokens>` (default `2000`). Finally, a user can specify a set of non-linguistic symbols
-by specifying the option `--nlsyms <nlsyms>`, where `<nlsyms>` is a comma-separated list of all non-linguistic symbols
-(default `<noise>`). The resultant token list (and `sentencepiece` model for `--token-type bpe`) can be found in
-`<dataset>/<asr1|tts1>/data/token_list`. 
-
+`--token-type bpe` (default), `--token-type char`, or `--token-type word`, respectively). If `--token_type bpe` is
+given, you can further control `sentencepiece`'s tokenization algorithm by supplying `--bpemode unigram` (default) or
+`--bpemode bpe`. The maximum number of tokens is controlled by `--n_tokens <n_tokens>` (default `2000`). Finally, you
+can specify a set of non-linguistic symbols by specifying the option `--nlsyms <nlsyms>`, where `<nlsyms>` is a
+comma-separated list of all non-linguistic symbols (default `<noise>`). The resultant token list and `sentencepiece`
+model can be found in `<dataset>/<asr1|tts1>/data/token_list`.
 
 ### High-Level Python Interface
 As alluded to above, the core functionality of this library is in the class `speech_datasets.SpeechDataLoader`. Its
@@ -271,9 +271,12 @@ look for the archive files, and what sort of pre-computed features have been dum
   `math.ceil(os.n_cpu() / num_replicas) - 1`.
 - `data_cache_mb`: (default `4096`): the number of megabytes the cache (for pre-fetching archive files into memory,
   as described [above](#archive-cache)) can contain. 
-- `spmodel`: (default `None`): the path to a `sentencepiece` BPE model to use to tokenize the text
-- `token_list`: (default `None`): the path to a list of `sentencepiece` BPE units to use to tokenize the text.
-  the indices in `token_list` override those in `spmodel`
+- `spmodel`: (default `None`): the path to a `sentencepiece` model to use to tokenize the text
+- `token_list`: (default `None`): the path to a list of `sentencepiece` tokens (BPE, character, or word) to use to
+  tokenize the text. The indices in `token_list` override those in `spmodel`. If the token `token_list` prepared by
+  Stage 7 of our script is used, tokens 0 and 1 will be `<blank>` and `<unk>` respectively, and the final token will
+  be `<sos/eos>`. If `token_list` is not used, tokens 0, 1, and 2 will be `<unk>`, `<s>`, and `</s>` respectively.
+  By default, we will search the directory containing `spmodel` for the file `tokens.txt` and use it if found.
 
 The `speech_datasets.SpeechDataLoader` class inherits from `torch.utils.data.DataLoader`, and it implements `__len__`
 and `__iter__` methods. To change the random seed used to order the data fetched, one should call
@@ -281,17 +284,18 @@ and `__iter__` methods. To change the random seed used to order the data fetched
 `torch.utils.data.distributed.DistributedSampler`. You should either
 1. Use the data loader as a context manager, i.e.
     ```python
-    with SpeechDataLoader(...) as loader:
+    with SDL(...) as loader:
        for batch in loader:
           # do stuff...
     ```
 2. Invoke `loader.close()` after you are done, i.e.
     ```python
-   loader = SpeechDataLoader(...)
+   loader = SDL(...)
    for batch in loader:
        # do stuff...
    loader.close()
     ```
+   
 This is because the asynchronous elements of the data loader (for pre-fetching data and computing data transformations
 in the background) need to be shut down manually to fully terminate.
 
@@ -327,12 +331,12 @@ detailed walkthrough of this code can be found [here](train_example/README.md).
 specify a list of strings (each formatted as `<dataset>/<split>`), and pass it as the `datasets` argument to the
 `speech_datasets.SpeechDataLoader` constructor. For example,
 ```python
-from speech_datasets import SpeechDataLoader
+from speech_datasets import SpeechDataLoader as SDL
 
 datasets = ["wsj/train_si284", "librispeech/train-other-500",
             "commonvoice/valid_train_en"]
-with SpeechDataLoader(datasets, task="asr1", train=True, shuffle=True,
-                      precomputed_feats_type="fbank") as loader:
+with SDL(datasets, task="asr1", train=True, shuffle=True,
+         precomputed_feats_type="fbank") as loader:
     # do stuff
 ```
 Because the data is loaded one archive at a time, and each archive file (by default) only contains data from a single
