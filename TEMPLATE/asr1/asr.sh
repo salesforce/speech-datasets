@@ -448,7 +448,6 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
         _opts_spm=""
     fi
 
-    # n_tokens - 2 to account for <sos/eos> and <blank>
     python3 -m speech_datasets.bin.spm_train \
         --input="${bpedir}"/train.txt --vocab_size="${n_tokens}" \
         --model_type="${bpemode}" --model_prefix="${bpeprefix}" \
@@ -458,7 +457,8 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
 
     # Manually specify <blank> = 0, <unk> = 1
     echo -e "<blank>\n<unk>" > "${token_list}"
-    # First 3 lines of model.vocab are <unk>, <s>, </s>, so get toks from line 4
+    # First 3 lines of model.vocab are <unk>, <s>, </s>, so get tokens from
+    # line 4 and later (tail -n +4)
     tail -n +4 "${bpeprefix}.vocab" | awk '{ print $1 }' >> "${token_list}"
     # Last token is <sos/eos>
     echo "<sos/eos>" >> "${token_list}"
