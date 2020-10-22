@@ -172,25 +172,20 @@ fi
 
 # Check tokenization type
 token_listdir=data/token_list
-bpedir="${token_listdir}/bpe_${bpemode}${n_tokens}"
-bpeprefix="${bpedir}"/model
-bpemodel="${bpeprefix}".model
-bpetoken_list="${bpedir}"/tokens.txt
-chartoken_list="${token_listdir}"/char/tokens.txt
-wordtoken_list="${token_listdir}"/word/tokens.txt
-
 if [ "${token_type}" = bpe ]; then
-    token_list="${bpetoken_list}"
+    bpedir="${token_listdir}/${token_type}_${bpemode}${n_tokens}"
 elif [ "${token_type}" = char ]; then
-    token_list="${chartoken_list}"
-    bpemodel=none
+    bpedir="${token_listdir}/${token_type}"
+    bpemode=${token_type}
 elif [ "${token_type}" = word ]; then
-    token_list="${wordtoken_list}"
-    bpemode=none
+    bpedir="${token_listdir}/${token_type}${n_tokens}"
+    bpemode=${token_type}
 else
     log "Error: not supported --token_type '${token_type}'"
     exit 2
 fi
+token_list="${bpedir}/tokens.txt"
+bpeprefix="${bpedir}"/model
 
 # =============================================================================== #
 #                  Standard data preparation stages start here                    #
@@ -439,55 +434,34 @@ fi
 
 
 if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
-    if [ "${token_type}" = bpe ]; then
-        log "Stage 7: Generate token_list from srctexts using BPE"
-        mkdir -p "${bpedir}"
+    log "Stage 7: Generate token_list from srctexts using ${token_type} tokens"
+    mkdir -p "${bpedir}"
 
-        # The src text files are formatted as <utt_id> <transcript>
-        # Discard the utterance ID from each line (delimiting fields by " ", only
-        # keep fields 2 and up). This the text we will use to train our BPE model.
-        cut -d" " -f 2- < "dump/srctexts" > "${bpedir}"/train.txt
+    # The src text files are formatted as <utt_id> <transcript>
+    # Discard the utterance ID from each line (delimiting fields by " ", only
+    # keep fields 2 and up). This the text we will use to train our BPE model.
+    cut -d" " -f 2- < "dump/srctexts" > "${bpedir}"/train.txt
 
-        if [ -n "${nlsyms}" ]; then
-            _opts_spm="--user_defined_symbols=${nlsyms}"
-        else
-            _opts_spm=""
-        fi
-
-        # n_tokens - 2 to account for <sos/eos> and <blank>
-        python3 -m speech_datasets.bin.spm_train \
-            --input="${bpedir}"/train.txt \
-            --vocab_size="$(($n_tokens - 2))" \
-            --model_type="${bpemode}" \
-            --model_prefix="${bpeprefix}" \
-            --character_coverage=${bpe_char_cover} \
-            --input_sentence_size="${bpe_input_sentence_size}" \
-            --unk_surface="<unk>" ${_opts_spm}
-
-        _opts="--bpemodel ${bpemodel}"
-
-    elif [ "${token_type}" = char ]; then
-        log "Stage 7: Generate character level token_list from dump/srctexts"
-        _opts="--non_linguistic_symbols ${nlsyms//,/ } --vocabulary_size ${n_tokens}"
-
-    elif [ "${token_type}" = word ]; then
-        log "Stage 7: Generate word level vocabulary from dump/srctexts"
-        _opts="--vocabulary_size ${n_tokens}"
+    if [ -n "${nlsyms}" ]; then
+        _opts_spm="--user_defined_symbols=${nlsyms}"
     else
-        log "Error: not supported --token_type '${token_type}'"
-        exit 2
+        _opts_spm=""
     fi
 
-    # The first symbol in token_list must be "<blank>" and the last must be also sos/eos:
-    # 0 is reserved for CTC-blank for ASR and also used as ignore-index in the other task
-    python3 -m speech_datasets.bin.tokenize_text  \
-        --token_type "${token_type}" \
-        --input "dump/srctexts" --output "${token_list}" ${_opts} \
-        --field 2- \
-        --write_vocabulary true \
-        --add_symbol "<blank>:0" \
-        --add_symbol "<unk>:1" \
-        --add_symbol "<sos/eos>:-1"
+    # n_tokens - 2 to account for <sos/eos> and <blank>
+    python3 -m speech_datasets.bin.spm_train \
+        --input="${bpedir}"/train.txt --vocab_size="${n_tokens}" \
+        --model_type="${bpemode}" --model_prefix="${bpeprefix}" \
+        --character_coverage=${bpe_char_cover} \
+        --input_sentence_size="${bpe_input_sentence_size}" \
+        --unk_surface="<unk>" ${_opts_spm} --unk_id=0 --bos_id=1 --eos_id=2
+
+    # Manually specify <blank> = 0, <unk> = 1
+    echo -e "<blank>\n<unk>" > "${token_list}"
+    # First 3 lines of model.vocab are <unk>, <s>, </s>, so get toks from line 4
+    tail -n +4 "${bpeprefix}.vocab" | awk '{ print $1 }' >> "${token_list}"
+    # Last token is <sos/eos>
+    echo "<sos/eos>" >> "${token_list}"
 fi
 
 log "Successfully finished. [elapsed=${SECONDS}s]"

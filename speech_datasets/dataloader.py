@@ -17,7 +17,7 @@ import torch
 import torch.utils.data
 import torch.distributed as dist
 
-from speech_datasets.text import build_tokenizer
+from speech_datasets.text import SentencepieceTokenizer
 from speech_datasets.transform import Transformation
 from speech_datasets.utils import get_root
 from speech_datasets.utils.io_utils import consolidate_utt_info, get_combo_idx
@@ -253,7 +253,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                     token_list = None
             if (isinstance(token_list, str) or isinstance(token_list, Path)) and not os.path.isfile(token_list):
                 token_list = None
-            self.tokenizer = build_tokenizer("bpe", spmodel, token_list)
+            self.tokenizer = SentencepieceTokenizer(spmodel, token_list)
 
         # Get all the datasets & their sub-datasets, and validate them
         datasets = [datasets] if isinstance(datasets, str) else datasets
