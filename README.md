@@ -275,6 +275,7 @@ look for the archive files, and what sort of pre-computed features have been dum
   tokenize the text. The indices in `token_list` override those in `spmodel`. If the token `token_list` prepared by
   Stage 7 of our script is used, tokens 0 and 1 will be `<blank>` and `<unk>` respectively, and the final token will
   be `<sos/eos>`. If `token_list` is not used, tokens 0, 1, and 2 will be `<unk>`, `<s>`, and `</s>` respectively.
+  By default, we will search the directory containing `spmodel` for the file `tokens.txt` and use it if found.
 
 The `speech_datasets.SpeechDataLoader` class inherits from `torch.utils.data.DataLoader`, and it implements `__len__`
 and `__iter__` methods. To change the random seed used to order the data fetched, one should call

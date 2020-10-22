@@ -219,13 +219,14 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             apply the data transformation (specified by `transform_conf`) to
             the data being loaded. Default is `1`. If `None`, the value used is
             `math.ceil(os.n_cpu() / num_replicas) - 1`.
-        :param data_cache_mb: the number of megabytes the cache (for pre-fetching
-            archive files into memory) can contain.
-        :param spmodel: the path to a `sentencepiece` BPE model to use to
-            tokenize the text
-        :param token_list: the path to a list of `sentencepiece` BPE units to
+        :param data_cache_mb: the number of megabytes the cache (for
+            pre-fetching archive files into memory) can contain.
+        :param spmodel: the path to a `sentencepiece` model to use to tokenize
+            the text. Can be trained with BPE, word, or char.
+        :param token_list: the path to a list of `sentencepiece` tokens to use
             use to tokenize the text. The indices in `token_list` override those
-            in `spmodel`.
+            in `spmodel`. By default, we will search the directory containing
+            `spmodel` for a `tokens.txt` and use it if found.
         """
         # For using the next() syntax
         self.iter = None
