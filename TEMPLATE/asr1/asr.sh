@@ -173,6 +173,11 @@ fi
 # Check tokenization type
 token_listdir=data/token_list
 if [ "${token_type}" = bpe ]; then
+    if [ ${bpemode} != unigram ] && [ ${bpemode} != bpe ]; then
+        log "${help_message}"
+        log "Error: not supported --bpemode ${bpemode}"
+        exit 2
+    fi
     bpedir="${token_listdir}/${token_type}_${bpemode}${n_tokens}"
 elif [ "${token_type}" = char ]; then
     bpedir="${token_listdir}/${token_type}"
@@ -181,6 +186,7 @@ elif [ "${token_type}" = word ]; then
     bpedir="${token_listdir}/${token_type}${n_tokens}"
     bpemode=${token_type}
 else
+    log "${help_message}"
     log "Error: not supported --token_type '${token_type}'"
     exit 2
 fi

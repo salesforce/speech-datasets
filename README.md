@@ -233,11 +233,12 @@ See [here](speech_datasets/transform/README.md) for more details.**
 6. Concatenate all text files (for language model training) into a single file.
 
 7. Use the output of stage 6 to obtain a token inventory, either BPE's, characters, or words (specify 
-`--token-type bpe` (default), `--token-type char`, or `--token-type word`, respectively). The maximum number of tokens
-is controlled by `--n_tokens <n_tokens>` (default `2000`). Finally, a user can specify a set of non-linguistic symbols
-by specifying the option `--nlsyms <nlsyms>`, where `<nlsyms>` is a comma-separated list of all non-linguistic symbols
-(default `<noise>`). The resultant token list and `sentencepiece` model can be found in
-`<dataset>/<asr1|tts1>/data/token_list`.
+`--token-type bpe` (default), `--token-type char`, or `--token-type word`, respectively). If `--token_type bpe` is
+given, you can further control `sentencepiece`'s tokenization algorithm by supplying `--bpemode unigram` (default) or
+`--bpemode bpe`. The maximum number of tokens is controlled by `--n_tokens <n_tokens>` (default `2000`). Finally, you
+can specify a set of non-linguistic symbols by specifying the option `--nlsyms <nlsyms>`, where `<nlsyms>` is a
+comma-separated list of all non-linguistic symbols (default `<noise>`). The resultant token list and `sentencepiece`
+model can be found in `<dataset>/<asr1|tts1>/data/token_list`.
 
 ### High-Level Python Interface
 As alluded to above, the core functionality of this library is in the class `speech_datasets.SpeechDataLoader`. Its
