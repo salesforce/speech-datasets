@@ -92,7 +92,7 @@ def main():
     args = parse_args()
 
     logger.info("Initializing data loaders...")
-    train = ["librispeech/test-clean"]
+    train = ["librispeech/train-clean-100", "librispeech/train-clean-360"]
     dev = ["librispeech/dev-clean"]
 
     # Wherever possible, please use the SpeechDataLoader as a context manager,
@@ -110,7 +110,7 @@ def main():
         # Initialize dimensions & model
         logger.info("Initializing model & optimizer...")
         idim, odim, adim = 80, len(train_loader.tokenizer), 256
-        model = EncoderDecoder(n_enc_layers=4, n_dec_layers=2, input_dim=idim,
+        model = EncoderDecoder(n_enc_layers=8, n_dec_layers=4, input_dim=idim,
                                output_dim=odim, attn_dim=adim).to(device=args.device)
 
         # Load a model checkpoint if desired
