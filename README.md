@@ -157,19 +157,23 @@ ESPNet).
 
 
 ##### Notes
-1. Our `Makefile` will only work on Linux systems! This is because we depend on
+1. We provide a minimal [`Dockerfile`](docker/Dockerfile) which you can use to create an appropriate containerized
+environment to run our code. Simply use the file to create a Docker image, instantiate it, clone this repository
+to that environment, and follow the steps above.
+
+2. Our `Makefile` will only work on Linux systems! This is because we depend on
 [PyKaldi](https://github.com/pykaldi/pykaldi), which is only compatible with Linux systems (without manual compilation).
 
-2. The `Makefile` will automatically detect your CUDA version (if any) and install the appropriate distribution of
+3. The `Makefile` will automatically detect your CUDA version (if any) and install the appropriate distribution of
 PyTorch accordingly. If the `conda` environment `<venv_name>` already exists, you will be asked for confirmation
 before anything is installed. Once this is done, you can simply activate the `conda` environment and start using
 the package.
 
-3. We use `conda` rather than `pip` because
+4. We use `conda` rather than `pip` because
     1. We depend on [PyKaldi](https://github.com/pykaldi/pykaldi), which has a `conda` package but not a `pip` package
     2. `conda` makes it easier to set up an installation of PyTorch compatible with the installed CUDA version (if any)
 
-4. We install the Python package in editable mode (i.e. using `pip install -e .`), rather than installing it to
+5. We install the Python package in editable mode (i.e. using `pip install -e .`), rather than installing it to
 `site-packages` directly (i.e. using `pip install .`). This is because the data loader assumes that the
 `speech_datasets` package is in the same directory as all the actual datasets, i.e.  that the directory structure of
 this repo is maintained.
