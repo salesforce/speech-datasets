@@ -27,7 +27,7 @@ CONDA_PYKALDI := -c pykaldi pykaldi-cpu
 
 .PHONY: all clean
 
-all: conda sph2pipe check_install
+all: conda sph2pipe check_install example
 
 tools/conda.done:
 # Only install PyTorch if the PyTorch version is non-empty
@@ -52,6 +52,9 @@ ifneq ($(strip $(CUDA_VERSION)),)
 else
 	source tools/venv/etc/profile.d/conda.sh && conda deactivate && conda activate $(VENV_NAME) && python tools/check_install.py --no-cuda
 endif
+
+example: conda
+	source tools/venv/etc/profile.d/conda.sh && conda deactivate && conda activate $(VENV_NAME) && pip install -r example/requirements.txt
 
 clean: clean_conda
 	rm -rf tools/*.done

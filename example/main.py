@@ -10,11 +10,9 @@ import torch.distributed as dist
 from torch.nn.utils.rnn import pad_sequence
 import tqdm
 
-from speech_datasets import SpeechDataLoader
-try:
-    from .model import EncoderDecoder
-except ImportError:
-    from train_example.model import EncoderDecoder
+from speech_datasets import SpeechDataLoader as SDL
+from example.model import EncoderDecoder
+from example.utils import edit_dist
 
 
 logger = logging.getLogger(__name__)
@@ -22,20 +20,36 @@ logger = logging.getLogger(__name__)
 
 def parse_args():
     dirname = os.path.dirname(os.path.abspath(__file__))
-    default_spm = os.path.join(dirname, "wsj_bpe75.model")
+    default_spm = os.path.join(dirname, "resources", "librispeech_bpe2000.model")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=-1)
     parser.add_argument("--feats_type", type=str, default="fbank",
-                        choices=["fbank", "fbank_pitch"])
-    parser.add_argument("--precomputed_feats", action="store_true", default=False)
+                        choices=["fbank", "fbank_pitch"],
+                        help="The type of features you would like to use.")
+    parser.add_argument("--precomputed_feats", action="store_true", default=False,
+                        help="Specify if you want to use pre-computed features, "
+                             "instead of computing them online.")
+    parser.add_argument("--num_workers", type=int, default=2,
+                        help="Number of workers for the data loader to compute "
+                             "feature transformations.")
 
-    parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--warmup_steps", type=int, default=4000)
-    parser.add_argument("--num_epochs", type=int, default=10)
+    parser.add_argument("--batch_size", type=int, default=16,
+                        help="Batch size for training.")
+    parser.add_argument("--max_len", type=int, default=480,
+                        help="Maximum effective utterance length for the "
+                             "purposes of computing batch size.")
+    parser.add_argument("--warmup_steps", type=int, default=4000,
+                        help="Number of steps to warm up the learning rate.")
+    parser.add_argument("--num_epochs", type=int, default=25,
+                        help="Number of epochs to train for.")
+    parser.add_argument("--checkpoint", type=str, default=None,
+                        help="Model checkpoint to load.")
 
-    parser.add_argument("--sentencepiece_model", default=default_spm, type=str)
-    parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--sentencepiece_model", default=default_spm, type=str,
+                        help="Sentencepiece model to use for tokenization.")
+    parser.add_argument("--debug", action="store_true", default=False,
+                        help="Specify if you want debug-level logs.")
     args = parser.parse_args()
 
     # Configure the logger
@@ -57,28 +71,29 @@ def parse_args():
             find_unused_parameters=True)
 
     # Determine the features to use (pre-computed or not)
-    args.transform_conf = os.path.join(dirname, f"{args.feats_type}.yaml")
+    args.transform_conf = os.path.join(dirname, "resources", f"{args.feats_type}.yaml")
     if not args.precomputed_feats:
         args.feats_type = "raw"
 
     return args
 
 
-def get_data_loader(datasets, args, shuffle, num_workers=7):
-    return SpeechDataLoader(
-        datasets, shuffle=shuffle, batch_size=args.batch_size,
+def get_data_loader(datasets, args, shuffle, train):
+    return SDL(
+        datasets, shuffle=shuffle, train=train,
+        batch_size=args.batch_size, max_len=args.max_len,
         spmodel=args.sentencepiece_model,
         transform_conf=args.transform_conf,
         precomputed_feats_type=args.feats_type,
-        num_workers=num_workers)
+        num_workers=args.num_workers, data_cache_mb=2048)
 
 
 def main():
     args = parse_args()
 
     logger.info("Initializing data loaders...")
-    train = ["librispeech/train-clean-100", "wsj/train_si284"]
-    dev = ["librispeech/dev-clean", "wsj/test_dev93"]
+    train = ["librispeech/test-clean"]
+    dev = ["librispeech/dev-clean"]
 
     # Wherever possible, please use the SpeechDataLoader as a context manager,
     # as done here. This is because the data loader creates background threads
@@ -89,13 +104,24 @@ def main():
     # syntax, make sure that you call loader.close() manually after you're done
     # using it. If you forget to do this, your program may not terminate!
     #
-    with get_data_loader(train, args, True) as train_loader, \
-            get_data_loader(dev, args, False) as dev_loader:
+    with get_data_loader(train, args, shuffle=True, train=True) as train_loader, \
+            get_data_loader(dev, args, shuffle=False, train=False) as dev_loader:
 
+        # Initialize dimensions & model
         logger.info("Initializing model & optimizer...")
         idim, odim, adim = 80, len(train_loader.tokenizer), 256
         model = EncoderDecoder(n_enc_layers=4, n_dec_layers=2, input_dim=idim,
                                output_dim=odim, attn_dim=adim).to(device=args.device)
+
+        # Load a model checkpoint if desired
+        if args.checkpoint is not None:
+            state_dict = torch.load(args.checkpoint, map_location=args.device)
+            model.load_state_dict(state_dict["model"])
+            best_ter, epoch0 = state_dict["best_ter"], state_dict["epoch"]
+        else:
+            best_ter, epoch0 = 1e20, 0
+
+        # Set up Distributed Data Parallel if desired
         model = args.ddp(model)
 
         # Set up optimizer & learning rate scheduler (Noam scheduler from
@@ -107,7 +133,7 @@ def main():
 
         # Main training loop
         t0 = time.time()
-        for epoch in range(args.num_epochs):
+        for epoch in range(epoch0, args.num_epochs):
             logger.info(f"Starting epoch {epoch+1}...")
             train_loader.set_epoch(epoch)
             # Each batch is a list of dictionaries (one per utterance)
@@ -136,10 +162,38 @@ def main():
                 opt.step()
                 sched.step()
 
-                # TODO: log tensorboard metrics during training
+            logger.info(f"Evaluating model after {epoch+1} epochs...")
+            n_char, n_edits = 0, 0
+            for dev_batch in tqdm.tqdm(dev_loader):
+                # Get inputs as above
+                xs = [utt_dict["x"] for utt_dict in dev_batch]
+                x_lens = [x.shape[0] for x in xs]
+                xs = pad_sequence(xs, batch_first=True).to(device=args.device)
 
-            logger.info(f"Evaluating model after epoch {epoch}...")
-            # TODO: end of epoch evaluation on dev set
+                # Get ground truth outputs as above
+                ys = [utt_dict["labels"] for utt_dict in dev_batch]
+                y_lens = [len(y) for y in ys]
+                ys = pad_sequence(ys, batch_first=True).to(device=args.device)
+
+                # Model output is a padded version of the y's.
+                with torch.no_grad():
+                    yhats = model(xs, x_lens, ys, y_lens).argmax(dim=-1)
+                    yhats = [yhat[:n] for yhat, n in zip(yhats, y_lens)]
+                    n_char += sum(y_lens)
+                    n_edits += sum(edit_dist(yhat[:n].tolist(), y[:n].tolist())
+                                   for yhat, y, n in zip(yhats, ys, y_lens))
+
+            # Log the token error rate of the model & save the checkpoint
+            ter = n_edits / n_char
+            logger.info(f"Token error rate after {epoch+1} epochs: {ter:.4f}\n")
+            model_to_save = model.module if hasattr(model, "module") else model
+            state = {"model": model_to_save.state_dict(),
+                     "epoch": epoch, "ter": ter, "best_ter": min(ter, best_ter)}
+            os.makedirs("checkpoint", exist_ok=True)
+            torch.save(state, f"checkpoint/{str(epoch).zfill(3)}.pt")
+            if ter < best_ter:
+                best_ter = ter
+                torch.save(state, f"checkpoint/best.pt")
 
     logger.info(f"[Elapsed]: {time.time()-t0:.2f}s")
 

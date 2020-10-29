@@ -101,7 +101,8 @@ class EncoderDecoder(nn.Module):
                                 num_attention_heads=attn_dim//64,
                                 hidden_dropout_prob=dropout_rate,
                                 attention_probs_dropout_prob=dropout_rate,
-                                is_decoder=False)
+                                is_decoder=False,
+                                max_position_embeddings=1024)
         self.encoder = BertModel(enc_config)
 
         dec_config = BertConfig(vocab_size=output_dim,
@@ -111,7 +112,8 @@ class EncoderDecoder(nn.Module):
                                 num_attention_heads=attn_dim//64,
                                 hidden_dropout_prob=dropout_rate,
                                 attention_probs_dropout_prob=dropout_rate,
-                                is_decoder=True)
+                                is_decoder=True,
+                                add_cross_attention=True)
         self.decoder = BertModel(dec_config)
         self.out = nn.Linear(attn_dim, output_dim)
 
@@ -120,7 +122,7 @@ class EncoderDecoder(nn.Module):
         x, x_mask = self.conv(xs, x_mask)
         enc_out = self.encoder(inputs_embeds=x, attention_mask=x_mask)[0]
         y_mask = get_attn_mask(y_lens, device=ys.device)
-        dec_out = self.decoder(input_ids=ys, attention_mask=y_mask,
+        dec_out = self.decoder(input_ids=ys.long(), attention_mask=y_mask,
                                encoder_hidden_states=enc_out,
                                encoder_attention_mask=x_mask)[0]
         return self.out(dec_out)

@@ -175,7 +175,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
-                 num_workers=1, data_cache_mb=4096,
+                 num_workers=1, data_cache_mb=2048,
                  spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.

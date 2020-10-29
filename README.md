@@ -110,7 +110,7 @@ with SDL(tr_data, transform_conf=t, train=True, shuffle=True, batch_size=16) as 
 ```
 <a name="archive-cache"></a>
 Our implementation balances memory constraints with the need for random access within a dataset (issue 4), by
-asynchronously loading entire archive files into a cache with a user-specified maximum size (default `4096MiB`).
+asynchronously loading entire archive files into a cache with a user-specified maximum size (default `2048MiB`).
 We fetch the next archive file into memory as soon as the cache has free space.
 
 <a name="random-policy"></a>
@@ -269,7 +269,7 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `num_workers`: (default `1`): the number of parallel processes to use to apply the data transformation
   (specified by `transform_conf`) to the data being loaded. If `None`, the value used is
   `math.ceil(os.n_cpu() / num_replicas) - 1`.
-- `data_cache_mb`: (default `4096`): the number of megabytes the cache (for pre-fetching archive files into memory,
+- `data_cache_mb`: (default `2048`): the number of megabytes the cache (for pre-fetching archive files into memory,
   as described [above](#archive-cache)) can contain. 
 - `spmodel`: (default `None`): the path to a `sentencepiece` model to use to tokenize the text
 - `token_list`: (default `None`): the path to a list of `sentencepiece` tokens (BPE, character, or word) to use to
@@ -308,17 +308,16 @@ Finally, each batch is a list of dictionaries, one dictionary per utterance. The
   (only present if `spmodel` is provided to the constructor)
 
 ### Example Training Code
-To make our proposed workflow more concrete, we provide a minimal [example](train_example/main.py) which uses 
+To make our proposed workflow more concrete, we provide a minimal [example](example/main.py) which uses 
 `speech_datasets.SpeechDataLoader` to train a seq2seq transformer encoder-decoder model in PyTorch (this example also
-depends on Huggingface's `transformers` library, which can installed by invoking `pip install transformers`). A
-detailed walkthrough of this code can be found [here](train_example/README.md).
+depends on Huggingface's `transformers` library, which can installed by invoking `pip install transformers`).
 
 ### Debugging Notes
 1. If your code hangs or starts running very slowly, try the following solutions:
     1. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
     specify this manually, the default is `1`. In some cases, setting it to `0` may help, but try (2) first.
     2. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
-    this manually, the default is `4096`.
+    this manually, the default is `2048`.
     3. Adding additional swap memory to your system.
 
     These solutions can address hangs due to one or more processes triggering

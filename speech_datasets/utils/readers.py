@@ -105,7 +105,7 @@ class BaseReader(IterableDataset):
                  transform: Transformation = None, train=False,
                  batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
-                 data_cache_mb=4096, num_workers: int = 1,
+                 data_cache_mb=2048, num_workers: int = 1,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(

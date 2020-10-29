@@ -19,7 +19,6 @@ log() {
 
 # general configuration
 SECONDS=0
-# TODO: if supporting languages besides English, rename base dir according to language
 lang=en # en de fr cy tt kab ca zh-TW it fa eu es ru
 # base url for downloads.
 data_url=https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-3/$lang.tar.gz
