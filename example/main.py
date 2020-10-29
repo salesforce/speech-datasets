@@ -53,10 +53,14 @@ def parse_args():
     args = parser.parse_args()
 
     # Configure the logger
-    lowest = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S', stream=sys.stdout,
-                        level=lowest if args.local_rank in [-1, 0] else logging.WARN)
+    if args.debug:
+        level = logging.DEBUG
+    elif args.local_rank in [-1, 0]:
+        level = logging.INFO
+    else:
+        level = logging.WARNING
+    logging.basicConfig(format=f'%(asctime)s - %(levelname)s - %(name)s - rank={args.local_rank} - %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S', stream=sys.stdout, level=level)
 
     # Set up Pytorch's distributed backend if needed
     if args.local_rank == -1:
@@ -117,9 +121,9 @@ def main():
         if args.checkpoint is not None:
             state_dict = torch.load(args.checkpoint, map_location=args.device)
             model.load_state_dict(state_dict["model"])
-            best_ter, epoch0 = state_dict["best_ter"], state_dict["epoch"]
+            best_ter, first_epoch = state_dict["best_ter"], state_dict["epoch"] + 1
         else:
-            best_ter, epoch0 = 1e20, 0
+            best_ter, first_epoch = 1e20, 1
 
         # Set up Distributed Data Parallel if desired
         model = args.ddp(model)
@@ -133,11 +137,12 @@ def main():
 
         # Main training loop
         t0 = time.time()
-        for epoch in range(epoch0, args.num_epochs):
-            logger.info(f"Starting epoch {epoch+1}...")
+        sos_eos = torch.tensor(train_loader.tokenizer.tokens2ids(["<sos/eos>"]))
+        for epoch in range(first_epoch, args.num_epochs + 1):
+            logger.info(f"Starting epoch {epoch}...")
             train_loader.set_epoch(epoch)
             # Each batch is a list of dictionaries (one per utterance)
-            for batch in tqdm.tqdm(train_loader):
+            for batch in tqdm.tqdm(train_loader, disable=args.local_rank not in [-1, 0]):
 
                 # utt_dict["x"] is a FloatTensor of shape (n_frames, feat_dim).
                 # This is the sequence of feature vectors extracted for the utterance
@@ -149,7 +154,8 @@ def main():
                 # the sequence of sub-word token indexes obtained by running the
                 # SentencePiece model on this utterance's transcript.
                 # Note: utt_dict["text"] provides the transcript as a string.
-                ys = [utt_dict["labels"] for utt_dict in batch]
+                ys = [torch.cat((sos_eos, utt_dict["labels"], sos_eos))
+                      for utt_dict in batch]
                 y_lens = [len(y) for y in ys]
                 ys = pad_sequence(ys, batch_first=True).to(device=args.device)
 
@@ -162,16 +168,17 @@ def main():
                 opt.step()
                 sched.step()
 
-            logger.info(f"Evaluating model after {epoch+1} epochs...")
+            logger.info(f"Evaluating model after {epoch} epochs...")
             n_char, n_edits = 0, 0
-            for dev_batch in tqdm.tqdm(dev_loader):
+            for dev_batch in tqdm.tqdm(dev_loader, disable=args.local_rank not in [-1, 0]):
                 # Get inputs as above
                 xs = [utt_dict["x"] for utt_dict in dev_batch]
                 x_lens = [x.shape[0] for x in xs]
                 xs = pad_sequence(xs, batch_first=True).to(device=args.device)
 
                 # Get ground truth outputs as above
-                ys = [utt_dict["labels"] for utt_dict in dev_batch]
+                ys = [torch.cat((sos_eos, utt_dict["labels"], sos_eos))
+                      for utt_dict in dev_batch]
                 y_lens = [len(y) for y in ys]
                 ys = pad_sequence(ys, batch_first=True).to(device=args.device)
 
@@ -183,17 +190,24 @@ def main():
                     n_edits += sum(edit_dist(yhat[:n].tolist(), y[:n].tolist())
                                    for yhat, y, n in zip(yhats, ys, y_lens))
 
-            # Log the token error rate of the model & save the checkpoint
+            # Log the token error rate of the model
+            if args.local_rank != -1:
+                n_edits_char = torch.tensor([n_edits, n_char], dtype=torch.long, device=args.device)
+                dist.all_reduce(n_edits_char, op=dist.ReduceOp.SUM)
+                n_edits, n_char = n_edits_char.tolist()
             ter = n_edits / n_char
-            logger.info(f"Token error rate after {epoch+1} epochs: {ter:.4f}\n")
-            model_to_save = model.module if hasattr(model, "module") else model
-            state = {"model": model_to_save.state_dict(),
-                     "epoch": epoch, "ter": ter, "best_ter": min(ter, best_ter)}
-            os.makedirs("checkpoint", exist_ok=True)
-            torch.save(state, f"checkpoint/{str(epoch).zfill(3)}.pt")
-            if ter < best_ter:
-                best_ter = ter
-                torch.save(state, f"checkpoint/best.pt")
+            logger.info(f"Token error rate after {epoch} epochs: {ter:.4f}\n")
+
+            # Save the checkpoint
+            if args.local_rank in [-1, 0]:
+                model_to_save = model.module if hasattr(model, "module") else model
+                state = {"model": model_to_save.state_dict(),
+                         "epoch": epoch, "ter": ter, "best_ter": min(ter, best_ter)}
+                os.makedirs("checkpoint", exist_ok=True)
+                torch.save(state, f"checkpoint/{str(epoch).zfill(3)}.pt")
+                if ter < best_ter:
+                    best_ter = ter
+                    torch.save(state, f"checkpoint/best.pt")
 
     logger.info(f"[Elapsed]: {time.time()-t0:.2f}s")
 
