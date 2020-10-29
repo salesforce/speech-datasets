@@ -54,6 +54,17 @@ class FileQueue(object):
         # mutex to ensure that one thread doesn't try to notify the other while
         # the cv.wait_for(...) predicate is being evaluated.
         self._cv_mutex = RLock()
+        """
+        I was wondering if these two conditions can share the _mutex lock above
+        and possibly remove _cv_mutex
+        For example, see CPython's Queue class
+        https://github.com/python/cpython/blob/3317466061509c83dce257caab3661d52571cab1/Lib/queue.py#L46
+        
+        I think most of the functionalities of this class can be implemented analogous
+        to CPython's Queue, except close and clear methods. That might simplify the
+        lock/unlock logic here. Maybe this can remove multi-level nested lock acquires, 
+        such as 3-level lock acquires in `clear()` method
+        """
         self._not_full = Condition()
         self._not_empty = Condition()
 
