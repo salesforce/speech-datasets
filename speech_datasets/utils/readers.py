@@ -105,7 +105,7 @@ class BaseReader(IterableDataset):
                  transform: Transformation = None, train=False,
                  batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
-                 data_cache_mb=2048, num_workers: int = 1,
+                 data_cache_mb=2048, chunksize=32, num_workers: int = 1,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(
@@ -142,6 +142,7 @@ class BaseReader(IterableDataset):
         self._utt2len = utt2len
         self._ensure_equal_parts = ensure_equal_parts
         self._bszs = None
+        self.chunksize = chunksize
 
         # For determining the data format to return
         self.return_dict = return_dict
@@ -299,8 +300,9 @@ class BaseReader(IterableDataset):
         file_dict, and returns them (in desired format) along w/ their keys."""
         if self.process_pool is not None:
             # c is chunk size
-            c = min(32, math.ceil(len(file_dict) / (self.num_workers * 4)))
-            it = self.process_pool.imap(self.transform, file_dict.items(), c)
+            c = min(self.chunksize, math.ceil(len(file_dict) / (self.num_workers * 4)))
+            it = self.process_pool.imap(self.transform, file_dict.items(),
+                                        chunksize=max(int(c), 1))
         else:
             it = map(self.transform, file_dict.items())
         return zip(file_dict.keys(), map(self.datadict_to_output, it))

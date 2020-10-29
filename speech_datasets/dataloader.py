@@ -175,7 +175,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
-                 num_workers=1, data_cache_mb=2048,
+                 num_workers=1, data_cache_mb=2048, chunksize=32,
                  spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.
@@ -221,6 +221,10 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             `math.ceil(os.n_cpu() / num_replicas) - 1`.
         :param data_cache_mb: the number of megabytes the cache (for
             pre-fetching archive files into memory) can contain.
+        :param chunksize: the number of utterances to batch together for
+            computing feature transforms. Consider reducing if data is loading
+            too slow for multi-process use cases, or increasing if data is
+            loading too slow for single-process use cases.
         :param spmodel: the path to a `sentencepiece` model to use to tokenize
             the text. Can be trained with BPE, word, or char.
         :param token_list: the path to a list of `sentencepiece` tokens to use
@@ -309,7 +313,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                 shuffle=shuffle, n_parts=num_replicas, i_part=rank,
                 transform=transform, pre_fetch_next_epoch=True,
                 num_workers=num_workers, data_cache_mb=data_cache_mb,
-                batch_size=batch_size, max_len=max_len,
+                chunksize=chunksize, batch_size=batch_size, max_len=max_len,
                 utt2len=utt2len, ensure_equal_parts=ensure_equal_parts)
 
             super().__init__(dataset, batch_size=1, shuffle=False,

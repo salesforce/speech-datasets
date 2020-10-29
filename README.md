@@ -275,6 +275,9 @@ look for the archive files, and what sort of pre-computed features have been dum
   `math.ceil(os.n_cpu() / num_replicas) - 1`.
 - `data_cache_mb`: (default `2048`): the number of megabytes the cache (for pre-fetching archive files into memory,
   as described [above](#archive-cache)) can contain. 
+- `chunksize`: (default `32`): the number of utterances batched together for having their feature transformation
+  computed. Consider reducing if data is loading too slow for multi-process use cases, or increasing if data is
+  loading too slow for single-process use cases.
 - `spmodel`: (default `None`): the path to a `sentencepiece` model to use to tokenize the text
 - `token_list`: (default `None`): the path to a list of `sentencepiece` tokens (BPE, character, or word) to use to
   tokenize the text. The indices in `token_list` override those in `spmodel`. If the token `token_list` prepared by
@@ -318,14 +321,17 @@ depends on Huggingface's `transformers` library, which can installed by invoking
 
 ### Debugging Notes
 1. If your code hangs or starts running very slowly, try the following solutions:
-    1. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
-    specify this manually, the default is `1`. In some cases, setting it to `0` may help, but try (2) first.
+    1. Setting `chunksize` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
+    this manually, the default is `32`. This is appropriate for performing spectral augmentation and CMVN on the fly,
+    but may be too large for online feature computation.
     2. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
     this manually, the default is `2048`.
-    3. Adding additional swap memory to your system.
+    3. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
+    specify this manually, the default is `1`. In some cases, setting it to `0` may help, but try (i) and (ii) first.
+    4. Adding additional swap memory to your system.
 
     These solutions can address hangs due to one or more processes triggering
-    `OSError: [Errno 12] Cannot allocate memory`, but (i) and (ii) can also address cases of slow training
+    `OSError: [Errno 12] Cannot allocate memory`, but (i) to (iii) can also address cases of slow training
     due to I/O thrashing.
 
 # Combining Datasets

@@ -33,6 +33,9 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=2,
                         help="Number of workers for the data loader to compute "
                              "feature transformations.")
+    parser.add_argument("--chunksize", type=int, default=8,
+                        help="Chunk size for multiprocessing to use when "
+                             "computing feature transformations.")
 
     parser.add_argument("--batch_size", type=int, default=16,
                         help="Batch size for training.")
@@ -89,7 +92,7 @@ def get_data_loader(datasets, args, shuffle, train):
         spmodel=args.sentencepiece_model,
         transform_conf=args.transform_conf,
         precomputed_feats_type=args.feats_type,
-        num_workers=args.num_workers, data_cache_mb=2048)
+        num_workers=args.num_workers, chunksize=args.chunksize)
 
 
 def main():
@@ -162,8 +165,8 @@ def main():
                 # Our model is a transformer encoder-decoder that we train to
                 # minimize the negative log likelihood (cross entropy) loss.
                 opt.zero_grad()
-                logits = model(xs, x_lens, ys, y_lens)
-                loss = loss_fn(logits.view(-1, odim), ys.view(-1))
+                logits = model(xs, x_lens, ys, y_lens)[:, :-1]
+                loss = loss_fn(logits.reshape(-1, odim), ys[:, 1:].reshape(-1))
                 loss.backward()
                 opt.step()
                 sched.step()
@@ -185,9 +188,8 @@ def main():
                 # Model output is a padded version of the y's.
                 with torch.no_grad():
                     yhats = model(xs, x_lens, ys, y_lens).argmax(dim=-1)
-                    yhats = [yhat[:n] for yhat, n in zip(yhats, y_lens)]
-                    n_char += sum(y_lens)
-                    n_edits += sum(edit_dist(yhat[:n].tolist(), y[:n].tolist())
+                    n_char += sum(y_lens) - len(y_lens)
+                    n_edits += sum(edit_dist(yhat[0:n-1].tolist(), y[1:n].tolist())
                                    for yhat, y, n in zip(yhats, ys, y_lens))
 
             # Log the token error rate of the model
