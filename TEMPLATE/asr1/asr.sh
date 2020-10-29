@@ -455,11 +455,12 @@ if [ ${stage} -le 7 ] && [ ${stop_stage} -ge 7 ]; then
     fi
 
     python3 -m speech_datasets.bin.spm_train \
-        --input="${bpedir}"/train.txt --vocab_size="${n_tokens}" \
+        --input="${bpedir}"/train.txt --vocab_size=$((n_tokens + 1)) \
         --model_type="${bpemode}" --model_prefix="${bpeprefix}" \
         --character_coverage=${bpe_char_cover} \
         --input_sentence_size="${bpe_input_sentence_size}" \
-        --unk_surface="<unk>" ${_opts_spm} --unk_id=0 --bos_id=1 --eos_id=2
+        --unk_surface="<unk>" --bos_piece="<sos/eos>" \
+        ${_opts_spm} --unk_id=0 --bos_id=1 --eos_id=2
 
     # Manually specify <blank> = 0, <unk> = 1
     echo -e "<blank>\n<unk>" > "${token_list}"
