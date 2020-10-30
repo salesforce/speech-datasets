@@ -16,10 +16,10 @@ from example.utils import edit_dist
 
 
 logger = logging.getLogger(__name__)
+dirname = os.path.dirname(os.path.abspath(__file__))
 
 
 def parse_args():
-    dirname = os.path.dirname(os.path.abspath(__file__))
     default_spm = os.path.join(dirname, "resources", "librispeech_bpe2000.model")
 
     parser = argparse.ArgumentParser()
@@ -74,21 +74,18 @@ def parse_args():
             model, device_ids=[args.local_rank], output_device=args.local_rank,
             find_unused_parameters=True)
 
-    # Determine the features to use (pre-computed or not)
-    args.transform_conf = os.path.join(dirname, "resources", f"{args.feats_type}.yaml")
-    if not args.precomputed_feats:
-        args.feats_type = "raw"
-
     return args
 
 
 def get_data_loader(datasets, args, shuffle, train):
+    transform_conf = os.path.join(dirname, "resources", f"{args.feats_type}.yaml")
+    feats_type = "raw" if args.precomputed_feats else args.feats_type
     return SDL(
         datasets, shuffle=shuffle, train=train,
         batch_size=args.batch_size, max_len=args.max_len,
         spmodel=args.sentencepiece_model,
-        transform_conf=args.transform_conf,
-        precomputed_feats_type=args.feats_type,
+        transform_conf=transform_conf,
+        precomputed_feats_type=feats_type,
         num_workers=args.num_workers)
 
 
