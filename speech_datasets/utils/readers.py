@@ -164,7 +164,7 @@ class BaseReader(IterableDataset):
         self.transform = Transformation() if transform is None else transform
 
         # Set up a process pool to apply the transform if there is one
-        if transform.is_null() or (num_workers is not None and num_workers < 1):
+        if self.transform.is_null() or (num_workers is not None and num_workers < 1):
             self.num_workers, self.pool = 0, None
         else:
             if num_workers is None:
