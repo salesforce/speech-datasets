@@ -14,7 +14,7 @@ setup(
         "numpy",
         "pillow>=6.1.0",
         "PyYAML>=5.1.2",
-        "ray",
+        "ray[tune]",
         "resampy",
         "scipy",
         "sentencepiece<0.1.90,>=0.1.82",
