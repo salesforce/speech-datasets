@@ -33,9 +33,6 @@ def parse_args():
     parser.add_argument("--num_workers", type=int, default=2,
                         help="Number of workers for the data loader to compute "
                              "feature transformations.")
-    parser.add_argument("--chunksize", type=int, default=8,
-                        help="Chunk size for multiprocessing to use when "
-                             "computing feature transformations.")
 
     parser.add_argument("--batch_size", type=int, default=16,
                         help="Batch size for training.")
@@ -92,7 +89,7 @@ def get_data_loader(datasets, args, shuffle, train):
         spmodel=args.sentencepiece_model,
         transform_conf=args.transform_conf,
         precomputed_feats_type=args.feats_type,
-        num_workers=args.num_workers, chunksize=args.chunksize)
+        num_workers=args.num_workers)
 
 
 def main():
@@ -116,7 +113,8 @@ def main():
 
         # Initialize dimensions & model
         logger.info("Initializing model & optimizer...")
-        idim, odim, adim = 80, len(train_loader.tokenizer), 256
+        idim = 80 if args.feats_type == "fbank" else 83
+        odim, adim = len(train_loader.tokenizer), 256
         model = EncoderDecoder(n_enc_layers=8, n_dec_layers=4, input_dim=idim,
                                output_dim=odim, attn_dim=adim).to(device=args.device)
 

@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 import io
 import logging
 import math
-import multiprocessing as mp
 import os
 import sys
 from typing import Any, Dict, List, Tuple
@@ -13,6 +12,7 @@ import weakref
 
 import h5py
 import kaldiio
+import ray
 import soundfile
 from torch.utils.data import IterableDataset
 
@@ -21,12 +21,8 @@ from speech_datasets.utils.io_utils import parse_scp_file, split_scp_dict
 from speech_datasets.utils.io_utils import FileQueue
 from speech_datasets.utils.types import CMVNStats
 
-
-# To maintain a list of readers that have been created. This is used to assign
-# unique global names to the transforms that co-existing HDF5Readers will give
-# to the multiprocessing pool (we need to do this
-_reader_registry = []
 logger = logging.getLogger(__name__)
+_ray_refs = 0
 
 
 def _weakref_close(reader_ref):
@@ -37,6 +33,24 @@ def _weakref_close(reader_ref):
     reader = reader_ref()
     if reader is not None:
         reader.close()
+
+
+def apply_transform(transform, key_datadict, train):
+    key, datadict = key_datadict
+    datadict['x'] = transform(**datadict, uttid_list=key, train=train)
+    return datadict
+
+
+@ray.remote
+class TransformActor:
+    def __init__(self, transform, train):
+        self.transform = transform
+        self.train = train
+
+    def apply(self, key_datadict):
+        return apply_transform(transform=self.transform,
+                               key_datadict=key_datadict,
+                               train=self.train)
 
 
 def file_reader_helper(rspecifier: str, filetype: str, train=True,
@@ -105,7 +119,7 @@ class BaseReader(IterableDataset):
                  transform: Transformation = None, train=False,
                  batch_size: int = None, max_len: int = None, utt2len=None,
                  ensure_equal_parts=True, pre_fetch_next_epoch=False,
-                 data_cache_mb=2048, chunksize=32, num_workers: int = 1,
+                 data_cache_mb=2048, num_workers: int = 1,
                  n_parts=1, i_part=0, shuffle=False, seed=0):
         if ":" not in rspecifier:
             raise ValueError(
@@ -142,41 +156,29 @@ class BaseReader(IterableDataset):
         self._utt2len = utt2len
         self._ensure_equal_parts = ensure_equal_parts
         self._bszs = None
-        self.chunksize = chunksize
 
         # For determining the data format to return
         self.return_dict = return_dict
         self.return_shape = return_shape and not return_dict
         self.train = train
-        transform = Transformation() if transform is None else transform
-
-        # For applying the desired transform to the signal in the background.
-        # We need to declare it globally to make it accessible to Python's
-        # multiprocessing module, and we need to programmatically set the name
-        # to allow the transforms of multiple data loaders to co-exist.
-        global _reader_registry
-        idx = len(_reader_registry)
-        _reader_registry.append(idx)
-        _globals = globals()
-        _globals.update(f=transform, train=self.train)
-        self.transform_name = f"_{self.__class__.__name__}_transform_{idx}"
-        exec(f"global {self.transform_name}\n"
-             f"def {self.transform_name}(key_datadict):\n"
-             f"    key, datadict = key_datadict\n"
-             f"    datadict['x'] = f(**datadict, uttid_list=key, train=train)\n"
-             f"    return datadict",
-             _globals)
-        self.transform = eval(self.transform_name)
+        self.transform = Transformation() if transform is None else transform
 
         # Set up a process pool to apply the transform if there is one
         if transform.is_null() or (num_workers is not None and num_workers < 1):
-            self.num_workers, self.process_pool = 0, None
+            self.num_workers, self.pool = 0, None
         else:
             if num_workers is None:
                 ncpu = os.cpu_count() or 1
                 num_workers = max(1, math.ceil(ncpu / self._n_parts) - 1)
             self.num_workers = num_workers
-            self.process_pool = mp.Pool(self.num_workers)
+
+            global _ray_refs
+            _ray_refs += 1
+            if not ray.is_initialized():
+                ray.init(num_cpus=num_workers)
+            actors = [TransformActor.remote(transform, self.train)
+                      for _ in range(self.num_workers)]
+            self.process_pool = ray.util.ActorPool(actors)
 
         # For pre-fetching and caching hdf5/ark files in memory.
         self.pre_fetch_next_epoch = pre_fetch_next_epoch
@@ -189,6 +191,7 @@ class BaseReader(IterableDataset):
 
         # Make sure that the data loader is shut down in case of premature exits
         atexit.register(_weakref_close, weakref.ref(self))
+        atexit.register(ray.shutdown)
 
     @abstractmethod
     def get_file_dict(self, path: str, uttid_locs: List[Tuple[str, str]] = None) \
@@ -198,13 +201,13 @@ class BaseReader(IterableDataset):
         raise NotImplementedError
 
     def __del__(self):
-        """Shut down the process pool, unregister this loader's transformation
-        function from global scope, and unregister self.close from atexit."""
-        self.thread_pool.shutdown(wait=False)
+        """Shut down the thread pool."""
         if self.process_pool is not None:
-            self.process_pool.terminate()
-        exec(f"global {self.transform_name}\n"
-             f"del {self.transform_name}")
+            global _ray_refs
+            _ray_refs -= 1
+            if _ray_refs == 0:
+                ray.shutdown()
+        self.thread_pool.shutdown(wait=False)
 
     def __len__(self):
         if self.ark_or_scp == "ark":
@@ -299,12 +302,12 @@ class BaseReader(IterableDataset):
         """Output iterator which applies self.transform to all the signals in
         file_dict, and returns them (in desired format) along w/ their keys."""
         if self.process_pool is not None:
-            # c is chunk size
-            c = min(self.chunksize, math.ceil(len(file_dict) / (self.num_workers * 4)))
-            it = self.process_pool.imap(self.transform, file_dict.items(),
-                                        chunksize=max(int(c), 1))
+            it = self.process_pool.map(
+                lambda a, v: a.apply.remote(v), file_dict.items())
         else:
-            it = map(self.transform, file_dict.items())
+            it = map(
+                lambda kd: apply_transform(self.transform, kd, self.train),
+                file_dict.items())
         return zip(file_dict.keys(), map(self.datadict_to_output, it))
 
     def __iter__(self):

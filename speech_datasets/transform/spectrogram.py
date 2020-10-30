@@ -18,6 +18,9 @@ class KaldiFeatures(TransformInterface):
         self.frame_opts.window_type = window_type
         self.default_kwargs = {}
 
+    def __setstate__(self, state):
+        self.__init__(**state)
+
     def __call__(self, x, rate=None, **kwargs):
         if rate is not None and rate != self.sample_frequency:
             raise RuntimeError(
@@ -78,6 +81,12 @@ class Spectrogram(KaldiFeatures):
 
         self.default_kwargs["vtln_warp"] = 1.0
 
+    def __getstate__(self):
+        dict(sample_frequency=self.sample_frequency,
+             frame_length_ms=self.frame_length_ms,
+             frame_shift_ms=self.frame_shift_ms,
+             window_type=self.window_type)
+
     def __repr__(self):
         return "{name}(samp_freq={f}, window_type={w})".format(
             name=self.__class__.__name__, f=self.sample_frequency, w=self.window_type)
@@ -87,7 +96,7 @@ class LogMelSpectrogram(KaldiFeatures):
     def __init__(self, sample_frequency, num_mel_bins, frame_length_ms=25,
                  frame_shift_ms=10, window_type="povey"):
         super().__init__(sample_frequency, frame_length_ms, frame_shift_ms, window_type)
-        self.n_mels = num_mel_bins
+        self.num_mel_bins = num_mel_bins
         self.mel_opts = feat.mel.MelBanksOptions()
         self.mel_opts.num_bins = num_mel_bins
         self.opts = feat.fbank.FbankOptions()
@@ -97,9 +106,16 @@ class LogMelSpectrogram(KaldiFeatures):
 
         self.default_kwargs["vtln_warp"] = 1.0
 
+    def __getstate__(self):
+        return dict(sample_frequency=self.sample_frequency,
+                    num_mel_bins=self.num_mel_bins,
+                    frame_length_ms=self.frame_length_ms,
+                    frame_shift_ms=self.frame_shift_ms,
+                    window_type=self.window_type)
+
     def __repr__(self):
         return "{name}(samp_freq={f}, n_mels={n}, window_type={w})".format(
-            name=self.__class__.__name__, f=self.sample_frequency, n=self.n_mels, w=self.window_type)
+            name=self.__class__.__name__, f=self.sample_frequency, n=self.num_mel_bins, w=self.window_type)
 
 
 class PitchFeatures(KaldiFeatures):
@@ -132,6 +148,15 @@ class PitchFeatures(KaldiFeatures):
                 rlp=self.process_opts.add_raw_log_pitch)
         )
 
+    def __getstate__(self):
+        return dict(sample_frequency=self.sample_frequency,
+                    frame_length_ms=self.frame_length_ms,
+                    frame_shift_ms=self.frame_shift_ms,
+                    add_delta_pitch=self.process_opts.add_delta_pitch,
+                    add_normalized_log_pitch=self.process_opts.add_normalized_log_pitch,
+                    add_pov_feature=self.process_opts.add_pov_feature,
+                    add_raw_log_pitch=self.process_opts.add_raw_log_pitch)
+
     def computer(self, x):
         return feat.pitch.compute_and_process_kaldi_pitch(
             self.pitch_opts, self.process_opts, matrix.Vector(x))
@@ -157,6 +182,17 @@ class FbankPitch(KaldiFeatures):
         self.pitch = PitchFeatures(sample_frequency, frame_length_ms, frame_shift_ms,
                                    add_delta_pitch, add_normalized_log_pitch,
                                    add_pov_feature, add_raw_log_pitch)
+
+    def __getstate__(self):
+        return dict(sample_frequency=self.sample_frequency,
+                    num_mel_bins=self.fbank.num_mel_bins,
+                    frame_length_ms=self.frame_length_ms,
+                    frame_shift_ms=self.frame_shift_ms,
+                    window_type=self.fbank.window_type,
+                    add_delta_pitch=self.pitch.process_opts.add_delta_pitch,
+                    add_normalized_log_pitch=self.pitch.process_opts.add_normalized_log_pitch,
+                    add_pov_feature=self.pitch.process_opts.add_pov_feature,
+                    add_raw_log_pitch=self.pitch.process_opts.add_raw_log_pitch)
 
     def computer(self, x, **kwargs):
         fbank, pitch = self.fbank(x, **kwargs), self.pitch(x)
