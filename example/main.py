@@ -79,7 +79,7 @@ def parse_args():
 
 def get_data_loader(datasets, args, shuffle, train):
     transform_conf = os.path.join(dirname, "resources", f"{args.feats_type}.yaml")
-    feats_type = "raw" if args.precomputed_feats else args.feats_type
+    feats_type = "raw" if not args.precomputed_feats else args.feats_type
     return SDL(
         datasets, shuffle=shuffle, train=train,
         batch_size=args.batch_size, max_len=args.max_len,
