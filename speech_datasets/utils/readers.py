@@ -175,7 +175,7 @@ class BaseReader(IterableDataset):
             global _ray_refs
             _ray_refs += 1
             if not ray.is_initialized():
-                ray.init(num_cpus=num_workers)
+                ray.init(num_cpus=num_workers*n_parts)
             actors = [TransformActor.remote(transform, self.train)
                       for _ in range(self.num_workers)]
             self.process_pool = ray.util.ActorPool(actors)
