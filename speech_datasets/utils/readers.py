@@ -41,7 +41,7 @@ def apply_transform(transform, key_datadict, train):
     return datadict
 
 
-@ray.remote
+@ray.remote(num_cpus=1, num_gpus=0)
 class TransformActor:
     def __init__(self, transform, train):
         self.transform = transform
@@ -163,22 +163,23 @@ class BaseReader(IterableDataset):
         self.train = train
         self.transform = Transformation() if transform is None else transform
 
-        # Set up a process pool to apply the transform if there is one
+        # Set up an actor pool to apply the transform if needed
         if self.transform.is_null() or (num_workers is not None and num_workers < 1):
-            self.num_workers, self.process_pool = 0, None
+            self.num_workers, self.actor_pool = 0, None
         else:
+            ncpu = os.cpu_count() or 1
             if num_workers is None:
-                ncpu = os.cpu_count() or 1
                 num_workers = max(1, math.ceil(ncpu / self._n_parts) - 1)
             self.num_workers = num_workers
 
             global _ray_refs
             _ray_refs += 1
             if not ray.is_initialized():
-                ray.init(num_cpus=num_workers*n_parts)
-            actors = [TransformActor.remote(transform, self.train)
-                      for _ in range(self.num_workers)]
-            self.process_pool = ray.util.ActorPool(actors)
+                ray.init(num_cpus=min(ncpu, num_workers*n_parts), num_gpus=0,
+                         include_dashboard=False, ignore_reinit_error=True)
+            actors = [TransformActor.remote(transform, train)
+                      for _ in range(num_workers)]
+            self.actor_pool = ray.util.ActorPool(actors)
 
         # For pre-fetching and caching hdf5/ark files in memory.
         self.pre_fetch_next_epoch = pre_fetch_next_epoch
@@ -202,7 +203,7 @@ class BaseReader(IterableDataset):
 
     def __del__(self):
         """Shut down the thread pool."""
-        if self.process_pool is not None:
+        if self.actor_pool is not None:
             global _ray_refs
             _ray_refs -= 1
             if _ray_refs == 0:
@@ -301,8 +302,8 @@ class BaseReader(IterableDataset):
     def output_iterator(self, file_dict):
         """Output iterator which applies self.transform to all the signals in
         file_dict, and returns them (in desired format) along w/ their keys."""
-        if self.process_pool is not None:
-            it = self.process_pool.map(
+        if self.actor_pool is not None:
+            it = self.actor_pool.map(
                 lambda a, v: a.apply.remote(v), file_dict.items())
         else:
             it = map(
