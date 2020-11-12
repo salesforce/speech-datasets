@@ -19,13 +19,15 @@ PACKAGE_ROOT="$5"
 shift $n_required_args
 
 # Download conda if an installation isn't specified
-if [ -z ${CONDA} ]; then
+if [ -z "${CONDA}" ]; then
     CONDA="${VENV_DIR}/bin/conda"
-    if [ ! -e miniconda.sh ]; then
-        wget --tries=3 "${CONDA_URL}" -O miniconda.sh
-    fi
-    if [ ! -e "$(pwd)/${VENV_DIR}" ]; then
-        bash miniconda.sh -b -p "$(pwd)/${VENV_DIR}"
+    if [ -z "${CONDA}" ]; then
+        if [ ! -f "${PACKAGE_ROOT}/tools/miniconda.sh" ]; then
+            wget --tries=3 "${CONDA_URL}" -O "${PACKAGE_ROOT}/tools/miniconda.sh"
+        fi
+        if [ ! -d "${VENV_DIR}" ]; then
+            bash "${PACKAGE_ROOT}/tools/miniconda.sh" -b -p "${VENV_DIR}"
+        fi
     fi
 else
     ln -sf "$(${CONDA} info --base)" "${VENV_DIR}"
@@ -54,14 +56,13 @@ if [ ${INSTALLED_PYTHON_VERSION} != ${PYTHON_VERSION} ]; then
     esac
 fi
 
-conda install -y setuptools pip conda -c anaconda
-conda update -y -n "${VENV_NAME}" conda
+conda update -y -n "${VENV_NAME}" -c defaults conda
 
 # Install any conda dependencies (specified via command line)
 while (( "$#" )); do
     echo ""
-    echo "conda install -y $1"
-    conda install -y $1
+    echo "conda install -y -n ${VENV_NAME} $1"
+    conda install -y -n "${VENV_NAME}" $1
     shift
 done
 

@@ -19,6 +19,7 @@ setup(
         "scipy",
         "sentencepiece<0.1.90,>=0.1.82",
         "soundfile>=0.10.2",
+        "torch>=1.2.0",
         "tqdm",
         "typeguard>=2.7.0",
     ]
