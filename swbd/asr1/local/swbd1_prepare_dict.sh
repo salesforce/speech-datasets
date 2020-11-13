@@ -38,7 +38,7 @@ srcdict=$srcdir/swb_ms98_transcriptions/sw-ms98-dict.text
 # copy over the initial dictionary as thee base lexicon
 dir=data/local/dict_nosp
 mkdir -p $dir
-cp $srcdict $dir/lexicon0.txt || exit 1;
+install -m +rw $srcdict $dir/lexicon0.txt || exit 1;
 log "$(patch <local/dict.patch $dir/lexicon0.txt)" || exit 1;
 
 #(2a) Dictionary preparation:
