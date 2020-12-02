@@ -270,9 +270,10 @@ look for the archive files, and what sort of pre-computed features have been dum
 - `ensure_equal_parts`: Whether to ensure that all parallel processes receive the same number of batches to process.
   This should always be enabled if you are training with `DistributedDataParallel`, but you may wish to disable it
   if you are evaluating your model and wish to have each utterance processed exactly once.
-- `num_workers`: (default `1`): the number of parallel processes to use to apply the data transformation
+- `num_workers`: (default `0`): the number of parallel processes to use to apply the data transformation
   (specified by `transform_conf`) to the data being loaded. If `None`, the value used is
-  `math.ceil(os.n_cpu() / num_replicas) - 1`.
+  `math.ceil(os.n_cpu() / num_replicas) - 1`. Note that there are some known issues with this feature! If you are
+  running into hanging/deadlock with `num_workers > 0`, try changing `num_workers` to `0` before trying anything else.
 - `data_cache_mb`: (default `2048`): the number of megabytes the cache (for pre-fetching archive files into memory,
   as described [above](#archive-cache)) can contain. 
 - `spmodel`: (default `None`): the path to a `sentencepiece` model to use to tokenize the text
@@ -320,8 +321,9 @@ depends on Huggingface's `transformers` library, which can installed by invoking
 1. If your code hangs or starts running very slowly, try the following solutions:
     1. Setting `data_cache_mb` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not specify
     this manually, the default is `2048`.
-    2. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. If you did not
-    specify this manually, the default is `1`. In some cases, setting it to `0` may help, but try (i) and (ii) first.
+    2. Setting `num_workers` (in the constructor of the `SpeechDataLoader`) to a lower value. This library has some
+    known issues with `ray` (the backend we use for multiprocessing), so setting `num_workers` to `0` may solve your
+    problem in some cases. Note that `0` is the default value.
     3. Adding additional swap memory to your system.
 
     These solutions can address hangs due to one or more processes triggering

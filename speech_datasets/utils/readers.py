@@ -87,13 +87,13 @@ def file_reader_helper(rspecifier: str, filetype: str, train=True,
     """
     if filetype == "mat":
         return KaldiReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, num_workers=1)
+                           transform=transform, train=train, num_workers=0)
     elif filetype == "hdf5":
         return HDF5Reader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                          transform=transform, train=train, num_workers=1)
+                          transform=transform, train=train, num_workers=0)
     elif filetype == "sound":
         return SoundReader(rspecifier, return_shape=return_shape, return_dict=return_dict,
-                           transform=transform, train=train, num_workers=1)
+                           transform=transform, train=train, num_workers=0)
     else:
         raise NotImplementedError(f"filetype={filetype}")
 

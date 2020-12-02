@@ -175,7 +175,7 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
                  transform_conf: Union[str, List[Dict[str, Any]]] = None,
                  batch_size=1, max_len=None, train=False, shuffle=False,
                  num_replicas=None, rank=None, ensure_equal_parts=True,
-                 num_workers=1, data_cache_mb=2048,
+                 num_workers=0, data_cache_mb=2048,
                  spmodel=None, token_list=None):
         """
         :param datasets: a list of strings specifying which datasets to load.
@@ -217,8 +217,11 @@ class SpeechDataLoader(torch.utils.data.DataLoader):
             have each utterance processed exactly once.
         :param num_workers: the number of parallel processes to use to
             apply the data transformation (specified by `transform_conf`) to
-            the data being loaded. Default is `1`. If `None`, the value used is
-            `math.ceil(os.n_cpu() / num_replicas) - 1`.
+            the data being loaded. If `None`, the value used is
+            `math.ceil(os.n_cpu() / num_replicas) - 1`. Note that there are
+            some known issues with this feature! If you are running into
+            hanging/deadlock with `num_workers > 0`, change `num_workers`
+            to `0` before trying anything else.
         :param data_cache_mb: the number of megabytes the cache (for
             pre-fetching archive files into memory) can contain.
         :param spmodel: the path to a `sentencepiece` model to use to tokenize
