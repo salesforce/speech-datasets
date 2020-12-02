@@ -50,7 +50,7 @@ audio_format=wav    # Audio format (only in feats_type=raw, archive_format=sound
 archive_format=     # Audio archive format
                     # (hdf5 (default) or mat or sound for feats_type = raw)
                     # (hdf5 or mat (default) for feats_type = fbank_pitch or fbank)
-fs=16000            # Sampling rate (only in feats_type = raw).
+fs=16000            # Sampling rate.
 cmvn_type=global    # Type of CMVN statistics to compute (global or speaker or utterance) (defaut=global)
                     # (only in feats_type=fbank or feats_type=fbank_pitch)
 remove_short_from_test=false  # whether to remove short utterances from test/dev sets (stage 4)
@@ -91,7 +91,7 @@ Options:
     --archive_format  # Format in which to store extracted features/audio
                       # If feats_type=raw, valid options are hdf5, sound, mat (default=hdf5)
                       # Otherwise, valid options are hdf5, mat (default=mat)
-    --fs              # Sampling rate (only in feats_type=raw, default="${fs}").
+    --fs              # Sampling rate (default="${fs}").
     --cmvn_type       # Type of CMVN statistics to compute (global or speaker or utterance, default=${cmvn_type})
                       # (only used when feats_type=fbank or feats_type=fbank_pitch)
     --remove_short_from_test   # whether to remove short utterances from test/dev sets (default=${remove_short_from_test})
