@@ -54,8 +54,6 @@ def validate_datasets(datasets: List[str], task: str, feats_type: str) \
         dataset2subs[dataset.lower()].add(sub)
 
     # Make sure the task, feature type, and speech_datasets are all valid
-    assert task.lower() in ["asr", "tts"], task.lower()
-    assert feats_type.lower() in ["raw", "fbank", "fbank_pitch"], feats_type.lower()
     valid = get_valid_datasets(task)
     invalid = set(dataset2subs.keys()).difference(valid)
     assert len(invalid) == 0, \
