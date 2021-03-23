@@ -1,0 +1,1 @@
+../asr1/combine_cmvn_stats.sh

@@ -1,0 +1,13 @@
+- type: fbank
+  num_mel_bins: 80
+  sample_frequency: 16000
+- type: cmvn
+  cmvn_type: global
+  stats: resources/global_cmvn_fbank.ark
+  norm_vars: True
+- type: spec_augment
+  n_freq_mask: 2
+  max_freq_width: 27
+  n_time_mask: 2
+  max_time_width: 100
+  max_time_warp: 80
